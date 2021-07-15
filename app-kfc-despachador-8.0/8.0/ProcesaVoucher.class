@@ -99,12 +99,12 @@ public class ProcesaVoucher {
   }
   
   public static void cortar() {
-    char[] ESC_CUT_PAPER = { '\033', 'm', 'i' };
+    char[] ESC_CUT_PAPER = { '\033', 'm' };
     pw.write(ESC_CUT_PAPER);
   }
   
   public static void cortarFormato() {
-    char[] ESC_CUT_PAPER = { '\033', 'm', 'i' };
+    char[] ESC_CUT_PAPER = { '\033', 'm' };
     pw.println(" ");
     pw.println(" ");
     pw.println(" ");
@@ -129,8 +129,8 @@ public class ProcesaVoucher {
         }
         
         public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos) {
-          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.PRE || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B || t == HTML.Tag.TR || t == HTML.Tag.TD || t == HTML.Tag.TH))
-            if (t == HTML.Tag.TD || t == HTML.Tag.TH || t == HTML.Tag.PRE) {
+          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B || t == HTML.Tag.TR || t == HTML.Tag.TD || t == HTML.Tag.TH))
+            if (t == HTML.Tag.TD || t == HTML.Tag.TH) {
               sb.append("<espacio>");
               this.readyForNewline = true;
             } else if (t == HTML.Tag.BR) {
@@ -315,7 +315,7 @@ public class ProcesaVoucher {
     return valor;
   }
   
-  public void EscribirArchivo() {
+  public static void EscribirArchivo() {
     if (linea[0].indexOf("----") == 0) {
       for (int x = 0; x < linea.length; x++) {
         if (linea[x].indexOf("<espacio>") > 0) {
@@ -329,13 +329,8 @@ public class ProcesaVoucher {
           String cadena = linea[x];
           if (x == 1 || x == 3 || x == 4 || x == 5 || x == 12)
             cadena = centraLinea(cadena, 38); 
-          if (cadena.indexOf("---") >= 0) {
-            cadena = cadena.substring(0, cadena.length() - 8);
-            if (cadena.indexOf("@") >= 0) {
-              char[] ESC_CUT_PAPER = { '\033', 'd', '\003', 'i', '\033' };
-              pw.write(ESC_CUT_PAPER);
-            } 
-          } 
+          if (cadena.indexOf("---") >= 0)
+            cadena = cadena.substring(0, cadena.length() - 8); 
           String cadenaImp = removeCaracteres(cadena);
           escribirCadena(cadenaImp);
         } 
@@ -363,36 +358,6 @@ public class ProcesaVoucher {
     escribirCadena("");
     escribirCadena("");
     cortar();
-  }
-  
-  public void EscribirArchivoVoucher() {
-    for (int x = 0; x < linea.length; x++) {
-      if (linea[x].indexOf("<espacio>") > 0) {
-        String valor1 = linea[x].substring(0, linea[x].indexOf("<espacio>"));
-        String valor2 = linea[x].substring(linea[x].indexOf("<espacio>") + 9, linea[x].length());
-        String cadena = String.format("%1$20s", new Object[] { valor1 });
-        cadena = String.valueOf(cadena) + String.format("%1$7s", new Object[] { valor2 });
-        String cadenaImp = removeCaracteres(cadena);
-        escribirCadena(cadenaImp);
-      } else {
-        String cadena = linea[x];
-        cadena = cadena.substring(0, cadena.length() - 8);
-        if (x == 1 || x == 3 || x == 4 || x == 5 || x == 12)
-          cadena = centraLinea(cadena, 38); 
-        if (cadena.indexOf("---") >= 0)
-          if (cadena.indexOf("@") >= 0) {
-            char[] arrayOfChar = { '\033', 'd', '\003', 'i', '\033' };
-            pw.write(arrayOfChar);
-          }  
-        String cadenaImp = removeCaracteres(cadena);
-        escribirCadena(cadenaImp);
-      } 
-    } 
-    escribirCadena("");
-    escribirCadena("");
-    escribirCadena("");
-    char[] ESC_CUT_PAPER = { '\033', 'd', '\003', 'i', '\033', 'm' };
-    pw.write(ESC_CUT_PAPER);
   }
   
   public String EscribirArchivoFormato() {

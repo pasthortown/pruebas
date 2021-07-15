@@ -1,19 +1,12 @@
 package com.corlasosa.kfc.despachador.formateado;
 
 import com.corlasosa.kfc.despachador.ProcesaCupones;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.awt.image.ImageObserver;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
-import java.math.BigDecimal;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -128,29 +121,6 @@ public class IntroPageDetalleCupon implements Printable {
             Font fuenteTitulo2 = new Font(this.formato, 2, this.tamanio);
             g2d.setFont(fuenteTitulo2);
             g2d.drawString(arreglo[1], 60, y);
-          } else if (linea2.indexOf("QR") >= 0) {
-            String codigoqr = linea2.substring(3, linea2.length());
-            QRCodeWriter writer = new QRCodeWriter();
-            int width = 100, height = 100;
-            BigDecimal widthCenter = new BigDecimal(width / 2);
-            int imageCenter = widthCenter.intValue();
-            BigDecimal asd = new BigDecimal(width * 0.6D);
-            int dfg = asd.intValue();
-            BufferedImage image = new BufferedImage(width, height, 1);
-            int white = 16777215;
-            int black = 0;
-            try {
-              BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
-              for (int ii = 0; ii < width; ii++) {
-                for (int j = 0; j < height; j++)
-                  image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
-              } 
-              g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
-            } catch (WriterException e) {
-              e.printStackTrace();
-            } catch (Exception e) {
-              e.printStackTrace();
-            } 
           } else if (ValidaTitulos(linea2) == 1) {
             Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
             g2d.setFont(fuenteTitulo);

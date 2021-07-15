@@ -62,10 +62,6 @@ public class ProcesaOrdenPedido {
   
   private String CantidadCaracteresDescripcion;
   
-  private String aumentoTamanioLetraOrden;
-  
-  private List<String> impresorasExcluidasQR;
-  
   private EscribeLog prcEscribirlog;
   
   public static String[] linea;
@@ -102,22 +98,6 @@ public class ProcesaOrdenPedido {
   
   public void setTabla(String tabla) {
     this.tabla = tabla;
-  }
-  
-  public String getAumentoTamanioLetraOrden() {
-    return this.aumentoTamanioLetraOrden;
-  }
-  
-  public void setAumentoTamanioLetraOrden(String aumentoTamanioLetraOrden) {
-    this.aumentoTamanioLetraOrden = aumentoTamanioLetraOrden;
-  }
-  
-  public List<String> getImpresorasExcluidasQR() {
-    return this.impresorasExcluidasQR;
-  }
-  
-  public void setImpresorasExcluidasQR(List<String> impresorasExcluidasQR) {
-    this.impresorasExcluidasQR = impresorasExcluidasQR;
   }
   
   public int getImprimio() {
@@ -159,8 +139,7 @@ public class ProcesaOrdenPedido {
         }
         
         public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos) {
-          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B || 
-            t == HTML.Tag.TR || t == HTML.Tag.TD || t == HTML.Tag.TH))
+          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B || t == HTML.Tag.TR || t == HTML.Tag.TD || t == HTML.Tag.TH))
             if (t == HTML.Tag.TD || t == HTML.Tag.TH) {
               sb.append("<espacio>");
               this.readyForNewline = true;
@@ -237,10 +216,8 @@ public class ProcesaOrdenPedido {
     String original = ";
     String ascii = "aaaeeeiiiooouuunAAAEEEIIIOOOUUUNcCo";
     String output = input;
-    for (int i = 0; i < original.length(); i++) {
-      if (i <= ascii.length() - 1)
-        output = output.replace(original.charAt(i), ascii.charAt(i)); 
-    } 
+    for (int i = 0; i < original.length(); i++)
+      output = output.replace(original.charAt(i), ascii.charAt(i)); 
     output = output.replace(", "o");
     output = output.replace("&aacute;", "a");
     output = output.replace("&eacute;", "e");
@@ -441,7 +418,6 @@ public class ProcesaOrdenPedido {
     int cant = 0;
     int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
     boolean flag = false;
-    String comentario = "";
     for (int x = 0; x < linea.length; x++) {
       if (x >= 1) {
         if (linea[x].indexOf("<espacio>") >= 0) {
@@ -467,22 +443,10 @@ public class ProcesaOrdenPedido {
           } 
         } else {
           cadena = linea[x];
-          if (cadena.indexOf("QR") >= 0) {
-            cadenaImp = cadena;
-          } else if (cadena.indexOf("---") >= 0) {
-            cadena = String.valueOf(cadena) + "------------------";
-          } else if (Integer.parseInt(this.TamanioLetra) > 8 && cadena.length() > cantidadCaracteres) {
-            cadenaImp = escribirCadenaLargaComentarioFormato(cadena.trim());
-            flag = true;
-          } 
-          if (!flag) {
-            cadenaImp = removeCaracteres(cadena);
-            cadenaImp = "<" + cadenaImp + ">";
-          } else {
-            cadena = cadenaImp;
-            cadena = removeCaracteres(cadena);
-            cadenaImp = cadena;
-          } 
+          if (cadena.indexOf("---") >= 0)
+            cadena = String.valueOf(cadena) + "------------------"; 
+          cadenaImp = removeCaracteres(cadena);
+          cadenaImp = "<" + cadenaImp + ">";
         } 
         if (cadena.indexOf("pp00m") >= 0)
           cadenaImp = "<" + cadena + ">\n<>"; 
@@ -526,35 +490,6 @@ public class ProcesaOrdenPedido {
       } 
       linea = lineaAux;
       linea2 = String.valueOf(linea2) + "< " + "SgmenB" + linea + ">";
-    } catch (Exception e) {
-      e.printStackTrace();
-    } 
-    return linea2;
-  }
-  
-  public String escribirCadenaLargaComentarioFormato(String cadena) {
-    String linea = cadena;
-    String lineaAux = linea;
-    String linea2 = "";
-    String valor = null;
-    String a = null;
-    int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
-    try {
-      while (lineaAux.length() > cantidadCaracteres) {
-        valor = lineaAux.substring(0, cantidadCaracteres);
-        for (int n = valor.length() - 1; n >= 0; n--) {
-          char c = valor.charAt(n);
-          a = Character.toString(c);
-          if (a.equals(" ")) {
-            linea = lineaAux.substring(0, n);
-            linea2 = String.valueOf(linea2) + "<" + linea + ">" + "\n";
-            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
-            break;
-          } 
-        } 
-      } 
-      linea = lineaAux;
-      linea2 = String.valueOf(linea2) + "<" + linea + ">";
     } catch (Exception e) {
       e.printStackTrace();
     } 
@@ -635,17 +570,12 @@ public class ProcesaOrdenPedido {
     pagina.setTabla(this.tabla);
     pagina.setFuente(this.FuenteLetra);
     pagina.setTamanio(Integer.parseInt(this.TamanioLetra));
-    pagina.setAumentoTamanioLetraOrden(Integer.parseInt(this.aumentoTamanioLetraOrden));
-    pagina.setNombreImpresora(this.nombreImpresora);
-    pagina.setNombreImpresora(getNombreImpresora());
-    pagina.setImpresorasExcluidasQR(getImpresorasExcluidasQR());
     book.append((Printable)pagina, getMinimumMarginPageFormat(printJob));
     printJob.setPageable(book);
     PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
     HashAttributeSet aset = new HashAttributeSet();
     services = PrintServiceLookup.lookupPrintServices(null, aset);
-    PrintService[] printers = PrintServiceLookup.lookupPrintServices(null, 
-        aset);
+    PrintService[] printers = PrintServiceLookup.lookupPrintServices(null, aset);
     this.imprimio = 0;
     for (int x = 0; x < services.length; x++) {
       if (printers[x].getName().compareToIgnoreCase(this.nombreImpresora) == 0)
@@ -683,9 +613,6 @@ public class ProcesaOrdenPedido {
         pagina.setTabla(this.tabla);
         pagina.setFuente(this.FuenteLetra);
         pagina.setTamanio(Integer.parseInt(this.TamanioLetra));
-        pagina.setAumentoTamanioLetraOrden(Integer.parseInt(this.aumentoTamanioLetraOrden));
-        pagina.setNombreImpresora(getNombreImpresora());
-        pagina.setImpresorasExcluidasQR(getImpresorasExcluidasQR());
         book.append((Printable)pagina, getMinimumMarginPageFormat(printJob));
         printJob.setPageable(book);
         printJob.setPrintService(services[idImpresora]);

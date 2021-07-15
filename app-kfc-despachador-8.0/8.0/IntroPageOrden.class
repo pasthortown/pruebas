@@ -15,8 +15,6 @@ import java.awt.image.ImageObserver;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,19 +25,6 @@ public class IntroPageOrden implements Printable {
   private String formato = "";
   
   private int tamanio;
-  
-  private int aumentoTamanioLetraOrden;
-  
-  private String nombreImpresora = "";
-  
-  private List<String> impresorasExcluidasQR = new ArrayList<>();
-  
-  public IntroPageOrden() {}
-  
-  public IntroPageOrden(String nombreImpresora, List<String> impresorasExcluidasQR) {
-    this.nombreImpresora = nombreImpresora;
-    this.impresorasExcluidasQR = impresorasExcluidasQR;
-  }
   
   public int getTamanio() {
     return this.tamanio;
@@ -57,36 +42,12 @@ public class IntroPageOrden implements Printable {
     this.formato = formato;
   }
   
-  public int getAumentoTamanioLetraOrden() {
-    return this.aumentoTamanioLetraOrden;
-  }
-  
-  public void setAumentoTamanioLetraOrden(int aumentoTamanioLetraOrden) {
-    this.aumentoTamanioLetraOrden = aumentoTamanioLetraOrden;
-  }
-  
   public String getTabla() {
     return this.tabla;
   }
   
   public void setTabla(String tabla) {
     this.tabla = tabla;
-  }
-  
-  public String getNombreImpresora() {
-    return this.nombreImpresora;
-  }
-  
-  public void setNombreImpresora(String nombreImpresora) {
-    this.nombreImpresora = nombreImpresora;
-  }
-  
-  public List<String> getImpresorasExcluidasQR() {
-    return this.impresorasExcluidasQR;
-  }
-  
-  public void setImpresorasExcluidasQR(List<String> impresorasExcluidasQR) {
-    this.impresorasExcluidasQR = impresorasExcluidasQR;
   }
   
   public int ValidaTitulos(String psCadena) {
@@ -146,10 +107,7 @@ public class IntroPageOrden implements Printable {
           Font linea2Font = new Font(this.formato, 2, this.tamanio);
           lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
           g2d.setFont(linea2Font);
-          if (linea2.indexOf("Transaccion") >= 0) {
-            FontMetrics metric = g2d.getFontMetrics();
-            impresionSeccionOrden(g2d, x, y, linea2);
-          } else if (linea2.indexOf("SgmenA") >= 0) {
+          if (linea2.indexOf("SgmenA") >= 0) {
             String[] arreglo = linea2.split("SgmenA");
             if (ValidaTitulos(arreglo[0]) == 1) {
               FontMetrics metric = g2d.getFontMetrics();
@@ -243,35 +201,28 @@ public class IntroPageOrden implements Printable {
           } else if (linea2.indexOf("pp00m") >= 0) {
             linea2 = linea2.substring(6, linea2.length());
             g2d.drawString(linea2, x + 35, y);
-          } else if (linea2.indexOf("QRTITLE") >= 0) {
-            linea2 = linea2.substring(7, linea2.length());
-            g2d.drawString(linea2, x + 25, y);
           } else if (linea2.indexOf("QR") >= 0) {
-            if (this.impresorasExcluidasQR == null || this.impresorasExcluidasQR.isEmpty() || 
-              !this.impresorasExcluidasQR.contains(this.nombreImpresora)) {
-              String codigoqr = linea2.substring(3, linea2.length());
-              QRCodeWriter writer = new QRCodeWriter();
-              int width = 100, height = 100;
-              BigDecimal widthCenter = new BigDecimal(width / 2);
-              int imageCenter = widthCenter.intValue();
-              BigDecimal asd = new BigDecimal(width * 0.6D);
-              int dfg = asd.intValue();
-              BufferedImage image = new BufferedImage(width, height, 1);
-              int white = 16777215;
-              int black = 0;
-              try {
-                BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
-                for (int ii = 0; ii < width; ii++) {
-                  for (int j = 0; j < height; j++)
-                    image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
-                } 
-                g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
-                y += 80;
-              } catch (WriterException e) {
-                e.printStackTrace();
-              } catch (Exception e) {
-                e.printStackTrace();
+            String codigoqr = linea2.substring(3, linea2.length());
+            QRCodeWriter writer = new QRCodeWriter();
+            int width = 100, height = 100;
+            BigDecimal widthCenter = new BigDecimal(width / 2);
+            int imageCenter = widthCenter.intValue();
+            BigDecimal asd = new BigDecimal(width * 0.6D);
+            int dfg = asd.intValue();
+            BufferedImage image = new BufferedImage(width, height, 1);
+            int white = 16777215;
+            int black = 0;
+            try {
+              BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
+              for (int ii = 0; ii < width; ii++) {
+                for (int j = 0; j < height; j++)
+                  image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
               } 
+              g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
+            } catch (WriterException e) {
+              e.printStackTrace();
+            } catch (Exception e) {
+              e.printStackTrace();
             } 
           } else {
             g2d.drawString(linea2, x, y);
@@ -284,22 +235,5 @@ public class IntroPageOrden implements Printable {
       Logger.getLogger(ProcesaOrdenPedido.class.getName()).log(Level.SEVERE, (String)null, ex);
     } 
     return 0;
-  }
-  
-  public void impresionSeccionOrden(Graphics2D g2d, int x, int y, String lineaOrden) {
-    Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
-    Font fuenteNumeroOrden = new Font(this.formato, 1, this.tamanio + getAumentoTamanioLetraOrden());
-    String[] ordenSegmentada = lineaOrden.split(" ");
-    if (ordenSegmentada.length == 3) {
-      g2d.setFont(fuenteTitulo);
-      g2d.drawString(String.valueOf(ordenSegmentada[0]) + ordenSegmentada[1], x, y);
-      g2d.setFont(fuenteNumeroOrden);
-      g2d.drawString(ordenSegmentada[2], x + 70, y);
-    } else if (ordenSegmentada.length == 2) {
-      g2d.setFont(fuenteTitulo);
-      g2d.drawString(ordenSegmentada[0], x, y);
-      g2d.setFont(fuenteNumeroOrden);
-      g2d.drawString(ordenSegmentada[1], x + 70, y);
-    } 
   }
 }

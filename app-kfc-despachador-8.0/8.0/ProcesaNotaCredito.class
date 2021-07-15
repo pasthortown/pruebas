@@ -466,16 +466,6 @@ public class ProcesaNotaCredito {
           } else if (lsdetalle.length == 2) {
             cadenatmp = String.valueOf(lsdetalle[0].trim()) + "SgmenB" + lsdetalle[1].trim();
             cadena = cadenatmp;
-          } else if (lsdetalle.length == 3) {
-            band = 1;
-            if (Integer.parseInt(this.TamanioLetra) >= 7 && lsdetalle[1].length() > cantidadCaracteres) {
-              cadenatmp = escribirCadenaLargaDetalleFormato1(removeCaracteres(lsdetalle[0].trim()), removeCaracteres(lsdetalle[1].trim()), removeCaracteres(lsdetalle[2].trim()));
-            } else {
-              cadenatmp = String.valueOf(lsdetalle[0].trim()) + "SgmenA" + lsdetalle[1].trim() + "SgmenA" + lsdetalle[2].trim();
-              String str = removeCaracteres(cadenatmp);
-              cadenatmp = "<" + cadenatmp + ">";
-            } 
-            cadena = cadenatmp;
           } 
         } 
         if (cadena.indexOf("----") == 0)
@@ -526,41 +516,6 @@ public class ProcesaNotaCredito {
             linea = lineaAux.substring(0, n);
             if (contador == 0) {
               linea2 = String.valueOf(linea2) + "<" + desCantidad + "SgmenA" + linea + "SgmenA" + pUnit + "SgmenA" + total + ">" + "\n";
-              contador++;
-            } else {
-              linea2 = String.valueOf(linea2) + "< " + "SgmenA" + linea + "SgmenA SgmenA " + ">" + "\n";
-            } 
-            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
-            break;
-          } 
-        } 
-      } 
-      linea = lineaAux;
-      linea2 = String.valueOf(linea2) + "< " + "SgmenA" + linea + "SgmenA SgmenA " + ">";
-    } catch (Exception e) {
-      e.printStackTrace();
-    } 
-    return linea2;
-  }
-  
-  public String escribirCadenaLargaDetalleFormato1(String desCantidad, String cadena, String total) {
-    String linea = cadena;
-    String lineaAux = linea;
-    String linea2 = "";
-    String valor = null;
-    String a = null;
-    int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
-    int contador = 0;
-    try {
-      while (lineaAux.length() > cantidadCaracteres) {
-        valor = lineaAux.substring(0, cantidadCaracteres);
-        for (int n = valor.length() - 1; n >= 0; n--) {
-          char c = valor.charAt(n);
-          a = Character.toString(c);
-          if (a.equals(" ")) {
-            linea = lineaAux.substring(0, n);
-            if (contador == 0) {
-              linea2 = String.valueOf(linea2) + "<" + desCantidad + "SgmenA" + linea + "SgmenA" + total + ">" + "\n";
               contador++;
             } else {
               linea2 = String.valueOf(linea2) + "< " + "SgmenA" + linea + "SgmenA SgmenA " + ">" + "\n";

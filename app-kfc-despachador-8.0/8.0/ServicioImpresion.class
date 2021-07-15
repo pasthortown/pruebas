@@ -7,8 +7,6 @@ import java.net.InetAddress;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Properties;
 import javax.print.Doc;
 import javax.print.DocFlavor;
@@ -37,8 +35,6 @@ public class ServicioImpresion {
   
   private static ProcesaOrdenPedido prcOrdenPedido;
   
-  private static ProcesaOrdenPedidoKDS prcOrdenPedidoKDS;
-  
   private static ProcesaOrdenHorneado prcOrdenHorneado;
   
   private static ProcesaRetiroFondo prcRetiroFondo;
@@ -48,12 +44,6 @@ public class ServicioImpresion {
   private static ProcesaRetiroFormaPago prcRetiroFormaPago;
   
   private static ProcesaFinDia prcFinDia;
-  
-  private static ProcesaFinDiaDian prcFinDiaDian;
-  
-  private static ProcesaFinDiaDianResumen prcFinDiaDianResumen;
-  
-  private static ProcesaFinDiaDianVentasPorDepartamento prcFinDiaDianVentasPorDepartamento;
   
   private static ProcesarCorteEnX prcCorteX;
   
@@ -81,9 +71,6 @@ public class ServicioImpresion {
       Properties lconfiguraciones = (new Configuraciones()).getPropiedades();
       String lsTamanioLetra = lconfiguraciones.getProperty("valor.tamanio");
       String lsFuenteLetra = lconfiguraciones.getProperty("valor.fuente");
-      String lsAumentoTamanioLetraOrden = lconfiguraciones.getProperty("valor.aumento.no.orden");
-      String lsImpresorasExcluidas = lconfiguraciones.getProperty("nombre.impresoras.excluidas.qr");
-      List<String> impresorasExcluidasQR = Arrays.asList(lsImpresorasExcluidas.split("_"));
       String lsQuery = lconfiguraciones.getProperty("query.consulta");
       String lsUpdate = lconfiguraciones.getProperty("query.update");
       String lsUpdateError = lconfiguraciones.getProperty("query.update_error");
@@ -145,7 +132,6 @@ public class ServicioImpresion {
             if (lsBanderaImpresion.equals("1")) {
               prcFactura.setFuenteLetra(lsFuenteLetra);
               prcFactura.setTamanioLetra(lsTamanioLetra);
-              prcFactura.setAumentoTamanioLetraOrden(lsAumentoTamanioLetraOrden);
               prcFactura.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
               prcFactura.EscribirArchivoFormato();
               prcFactura.impresionFormatojob();
@@ -187,25 +173,8 @@ public class ServicioImpresion {
               prcVoucher.impresionFormatojob();
               ProcesaVoucher.cortarFormato();
             } else {
-              prcVoucher.EscribirArchivo();
+              ProcesaVoucher.EscribirArchivo();
             } 
-            prcVoucher.cerrarArchivo();
-            prcVoucher.imprimirArchivo();
-            prcVoucher.borrarArchivo();
-            if (prcVoucher.getImprimio() == 1) {
-              accion = 1;
-            } else {
-              accion = 0;
-            } 
-          } else if (lsUrl.indexOf("impresion_voucher_generico.php") > 0) {
-            prcVoucher = new ProcesaVoucher();
-            prcVoucher.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".txt");
-            prcVoucher.setRutaVoucherHtml(lsUrl);
-            prcVoucher.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".html");
-            prcVoucher.setNombreImpresora(lsNombreImpresora);
-            prcVoucher.iniciaArchivoLocal();
-            ProcesaVoucher.leerUrl();
-            prcVoucher.EscribirArchivoVoucher();
             prcVoucher.cerrarArchivo();
             prcVoucher.imprimirArchivo();
             prcVoucher.borrarArchivo();
@@ -251,8 +220,7 @@ public class ServicioImpresion {
             procesaXML.iniciaArchivo("N");
             procesaXML.crearXml("N");
             procesaXML = null;
-          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && 
-            lsUrl.indexOf("opcionFp=EMPLEADO") > 0) {
+          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && lsUrl.indexOf("opcionFp=EMPLEADO") > 0) {
             prcCreditoEMPL = new ProcesaCreditoEmpleado();
             prcCreditoEMPL.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\creditoempl_" + lsCadena + ".txt");
             prcCreditoEMPL.setRutaVoucherHtml(lsUrl);
@@ -303,68 +271,32 @@ public class ServicioImpresion {
               accion = 0;
             } 
           } else if (lsUrl.indexOf("imprimir_ordenpedido.php") > 0) {
-            if (lsNombreImpresora.equals("VCOCINA")) {
-              System.out.println("Entro_OrdenPedido");
-              prcOrdenPedidoKDS = new ProcesaOrdenPedidoKDS();
-              prcOrdenPedidoKDS.setNombreArchivoLocal(
-                  String.valueOf(String.valueOf(lsRuta)) + "\\ordenpedido_" + lsCadena + ".txt");
-              prcOrdenPedidoKDS.setRutaVoucherHtml(lsUrl);
-              prcOrdenPedidoKDS.setNombreArchivoVoucher(
-                  String.valueOf(String.valueOf(lsRuta)) + "\\ordenpedido_" + lsCadena + ".html");
-              prcOrdenPedidoKDS.setNombreImpresora(lsNombreImpresora);
-              prcOrdenPedidoKDS.iniciaArchivoLocal();
-              ProcesaOrdenPedidoKDS.leerUrl();
-              if (lsBanderaImpresion.equals("0")) {
-                String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
-                String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
-                prcOrdenPedidoKDS.setFuenteLetra(lsFuenteLetra);
-                prcOrdenPedidoKDS.setTamanioLetra(tamanioFuente);
-                prcOrdenPedidoKDS.setCantidadCaracteresDescripcion(cantidadCaracteres);
-                prcOrdenPedidoKDS.EscribirArchivoFormato();
-                prcOrdenPedidoKDS.impresionFormatojob();
-                ProcesaOrdenPedidoKDS.cortarFormato();
-              } else {
-                ProcesaOrdenPedidoKDS.EscribirArchivo();
-              } 
-              prcOrdenPedidoKDS.cerrarArchivo();
-              prcOrdenPedidoKDS.imprimirArchivo();
-              prcOrdenPedidoKDS.borrarArchivo();
-              if (prcOrdenPedidoKDS.getImprimio() == 1) {
-                accion = 1;
-              } else {
-                accion = 0;
-              } 
+            prcOrdenPedido = new ProcesaOrdenPedido();
+            prcOrdenPedido.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".txt");
+            prcOrdenPedido.setRutaVoucherHtml(lsUrl);
+            prcOrdenPedido.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".html");
+            prcOrdenPedido.setNombreImpresora(lsNombreImpresora);
+            prcOrdenPedido.iniciaArchivoLocal();
+            ProcesaOrdenPedido.leerUrl();
+            if (lsBanderaImpresionOrden.equals("1")) {
+              String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
+              String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
+              prcOrdenPedido.setFuenteLetra(lsFuenteLetra);
+              prcOrdenPedido.setTamanioLetra(tamanioFuente);
+              prcOrdenPedido.setCantidadCaracteresDescripcion(cantidadCaracteres);
+              prcOrdenPedido.EscribirArchivoFormato();
+              prcOrdenPedido.impresionFormatojob();
+              ProcesaOrdenPedido.cortarFormato();
             } else {
-              System.out.println("Entro_OrdenPedido");
-              prcOrdenPedido = new ProcesaOrdenPedido();
-              prcOrdenPedido.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".txt");
-              prcOrdenPedido.setRutaVoucherHtml(lsUrl);
-              prcOrdenPedido.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".html");
-              prcOrdenPedido.setImpresorasExcluidasQR(impresorasExcluidasQR);
-              prcOrdenPedido.setNombreImpresora(lsNombreImpresora);
-              prcOrdenPedido.iniciaArchivoLocal();
-              ProcesaOrdenPedido.leerUrl();
-              if (lsBanderaImpresionOrden.equals("1")) {
-                String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
-                String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
-                prcOrdenPedido.setFuenteLetra(lsFuenteLetra);
-                prcOrdenPedido.setTamanioLetra(tamanioFuente);
-                prcOrdenPedido.setAumentoTamanioLetraOrden(lsAumentoTamanioLetraOrden);
-                prcOrdenPedido.setCantidadCaracteresDescripcion(cantidadCaracteres);
-                prcOrdenPedido.EscribirArchivoFormato();
-                prcOrdenPedido.impresionFormatojob();
-                ProcesaOrdenPedido.cortarFormato();
-              } else {
-                ProcesaOrdenPedido.EscribirArchivo();
-              } 
-              prcOrdenPedido.cerrarArchivo();
-              prcOrdenPedido.imprimirArchivo();
-              prcOrdenPedido.borrarArchivo();
-              if (prcOrdenPedido.getImprimio() == 1) {
-                accion = 1;
-              } else {
-                accion = 0;
-              } 
+              ProcesaOrdenPedido.EscribirArchivo();
+            } 
+            prcOrdenPedido.cerrarArchivo();
+            prcOrdenPedido.imprimirArchivo();
+            prcOrdenPedido.borrarArchivo();
+            if (prcOrdenPedido.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
             } 
           } else if (lsUrl.indexOf("impresion_RetiroFondo.php") > 0) {
             prcRetiroFondo = new ProcesaRetiroFondo();
@@ -466,82 +398,6 @@ public class ServicioImpresion {
             } else {
               accion = 0;
             } 
-          } else if (lsUrl.indexOf("impresion_FindelDia_Dian.php") > 0) {
-            prcFinDiaDian = new ProcesaFinDiaDian();
-            prcFinDiaDian.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
-            prcFinDiaDian.setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
-            prcFinDiaDian.setNombreImpresora(lsNombreImpresora);
-            prcFinDiaDian.iniciaArchivoLocal();
-            ProcesaFinDiaDian.leerUrl(lsUrl);
-            if (lsBanderaImpresion.equals("1")) {
-              prcFinDiaDian.setFuenteLetra(lsFuenteLetra);
-              prcFinDiaDian.setTamanioLetra(lsTamanioLetra);
-              prcFinDiaDian.EscribirArchivoFormato();
-              prcFinDiaDian.impresionFormatojob();
-              ProcesaFinDiaDian.cortarFormato();
-            } else {
-              ProcesaFinDiaDian.EscribirArchivo();
-            } 
-            prcFinDiaDian.cerrarArchivo();
-            prcFinDiaDian.imprimirArchivo();
-            prcFinDiaDian.borrarArchivo();
-            if (prcFinDiaDian.getImprimio() == 1) {
-              accion = 1;
-            } else {
-              accion = 0;
-            } 
-          } else if (lsUrl.indexOf("impresion_FindelDia_Dian_Resumen.php") > 0) {
-            prcFinDiaDianResumen = new ProcesaFinDiaDianResumen();
-            prcFinDiaDianResumen.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
-            ProcesaFinDiaDianResumen.setRutaFinDiaDianResumenHtml(lsUrl);
-            prcFinDiaDianResumen.setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
-            prcFinDiaDianResumen.setNombreImpresora(lsNombreImpresora);
-            prcFinDiaDianResumen.iniciaArchivoLocal();
-            ProcesaFinDiaDianResumen.leerUrl();
-            if (lsBanderaImpresion.equals("1")) {
-              prcFinDiaDianResumen.setFuenteLetra(lsFuenteLetra);
-              prcFinDiaDianResumen.setTamanioLetra(lsTamanioLetra);
-              prcFinDiaDianResumen.EscribirArchivoFormato();
-              prcFinDiaDianResumen.impresionFormatojob();
-              ProcesaFinDiaDianResumen.cortarFormato();
-            } else {
-              ProcesaFinDiaDianResumen.EscribirArchivo();
-            } 
-            prcFinDiaDianResumen.cerrarArchivo();
-            prcFinDiaDianResumen.imprimirArchivo();
-            prcFinDiaDianResumen.borrarArchivo();
-            if (prcFinDiaDianResumen.getImprimio() == 1) {
-              accion = 1;
-            } else {
-              accion = 0;
-            } 
-          } else if (lsUrl.indexOf("impresion_FindelDia_Dian_Ventas_Por_Departamento.php") > 0) {
-            prcFinDiaDianVentasPorDepartamento = new ProcesaFinDiaDianVentasPorDepartamento();
-            prcFinDiaDianVentasPorDepartamento
-              .setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
-            ProcesaFinDiaDianVentasPorDepartamento.setRutaFinDiaDianVentasPorDepartamentoHtml(lsUrl);
-            prcFinDiaDianVentasPorDepartamento
-              .setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
-            prcFinDiaDianVentasPorDepartamento.setNombreImpresora(lsNombreImpresora);
-            prcFinDiaDianVentasPorDepartamento.iniciaArchivoLocal();
-            ProcesaFinDiaDianVentasPorDepartamento.leerUrl();
-            if (lsBanderaImpresion.equals("1")) {
-              prcFinDiaDianVentasPorDepartamento.setFuenteLetra(lsFuenteLetra);
-              prcFinDiaDianVentasPorDepartamento.setTamanioLetra(lsTamanioLetra);
-              prcFinDiaDianVentasPorDepartamento.EscribirArchivoFormato();
-              prcFinDiaDianVentasPorDepartamento.impresionFormatojob();
-              ProcesaFinDiaDianVentasPorDepartamento.cortarFormato();
-            } else {
-              ProcesaFinDiaDianVentasPorDepartamento.EscribirArchivo();
-            } 
-            prcFinDiaDianVentasPorDepartamento.cerrarArchivo();
-            prcFinDiaDianVentasPorDepartamento.imprimirArchivo();
-            prcFinDiaDianVentasPorDepartamento.borrarArchivo();
-            if (prcFinDiaDianVentasPorDepartamento.getImprimio() == 1) {
-              accion = 1;
-            } else {
-              accion = 0;
-            } 
           } else if (lsUrl.indexOf("impresion_Corte_X.php") > 0) {
             prcCorteX = new ProcesarCorteEnX();
             prcCorteX.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\corteX_" + lsCadena + ".txt");
@@ -593,8 +449,7 @@ public class ServicioImpresion {
             } else {
               accion = 0;
             } 
-          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && 
-            lsUrl.indexOf("opcionFp=EMPRESA") > 0) {
+          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && lsUrl.indexOf("opcionFp=EMPRESA") > 0) {
             prcCupon = new ProcesaCupones();
             prcCupon.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\cupon_" + lsCadena + ".txt");
             prcCupon.setRutaCuponHtml(lsUrl);
@@ -758,8 +613,7 @@ public class ServicioImpresion {
             prcOrdenHorneado = new ProcesaOrdenHorneado();
             prcOrdenHorneado.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ordenpedidoHorneado_" + lsCadena + ".txt");
             prcOrdenHorneado.setRutaVoucherHtml(lsUrl);
-            prcOrdenHorneado
-              .setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedidoHorneado_" + lsCadena + ".html");
+            prcOrdenHorneado.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedidoHorneado_" + lsCadena + ".html");
             prcOrdenHorneado.setNombreImpresora(lsNombreImpresora);
             prcOrdenHorneado.iniciaArchivoLocal();
             ProcesaOrdenHorneado.leerUrl();

@@ -111,14 +111,12 @@ public class IntroPageNotaCredito implements Printable {
               g2d.drawString(arreglo[0], 10, y);
               g2d.drawString(arreglo[1], 30, y);
               g2d.drawString(arreglo[2], 140, y);
-              if (arreglo.length == 4)
-                g2d.drawString(arreglo[3], 165, y); 
+              g2d.drawString(arreglo[3], 165, y);
             } else {
               g2d.drawString(arreglo[0], 11, y);
               g2d.drawString(arreglo[1].trim(), 30, y);
               g2d.drawString(arreglo[2], 141, y);
-              if (arreglo.length == 4)
-                g2d.drawString("   " + arreglo[3], 166, y); 
+              g2d.drawString("   " + arreglo[3], 166, y);
             } 
           } else if (linea2.indexOf("SgmenC") >= 0) {
             String[] arreglo = linea2.split("SgmenC");

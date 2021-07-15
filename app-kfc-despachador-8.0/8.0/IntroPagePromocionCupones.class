@@ -1,19 +1,12 @@
 package com.corlasosa.kfc.despachador.formateado;
 
 import com.corlasosa.kfc.despachador.ProcesaPromocionCupones;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.awt.image.ImageObserver;
 import java.awt.print.PageFormat;
 import java.awt.print.Printable;
-import java.math.BigDecimal;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -87,36 +80,6 @@ public class IntroPagePromocionCupones implements Printable {
           lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
           g2d.setFont(linea2Font);
           g2d.getFontMetrics(linea2Font);
-          if (linea2.indexOf("Q.R") >= 0) {
-            lInicio = lLineaAux.indexOf("<");
-            lFin = lLineaAux.indexOf(">");
-            lLinea = String.valueOf(lLinea) + lLineaAux.substring(lInicio + 1, lFin);
-            cadenaImp = lLineaAux.substring(lInicio + 1, lFin);
-            linea2 = cadenaImp;
-            lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
-            String codigoqr = linea2.substring(0, linea2.length());
-            QRCodeWriter writer = new QRCodeWriter();
-            int width = 100, height = 100;
-            BigDecimal widthCenter = new BigDecimal(width / 2);
-            int imageCenter = widthCenter.intValue();
-            BigDecimal asd = new BigDecimal(width * 0.6D);
-            int dfg = asd.intValue();
-            BufferedImage image = new BufferedImage(width, height, 1);
-            int white = 16777215;
-            int black = 0;
-            try {
-              BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
-              for (int ii = 0; ii < width; ii++) {
-                for (int j = 0; j < height; j++)
-                  image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
-              } 
-              g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
-            } catch (WriterException e) {
-              e.printStackTrace();
-            } catch (Exception e) {
-              e.printStackTrace();
-            } 
-          } 
           if (i <= 7) {
             Font fuenteTitulo = new Font(formato, 1, tamanio);
             g2d.setFont(fuenteTitulo);
