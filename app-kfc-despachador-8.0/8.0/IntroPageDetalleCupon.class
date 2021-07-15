@@ -1,0 +1,174 @@
+package com.corlasosa.kfc.despachador.formateado;
+
+import com.corlasosa.kfc.despachador.ProcesaCupones;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.ImageObserver;
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.math.BigDecimal;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class IntroPageDetalleCupon implements Printable {
+  private String tabla = null;
+  
+  private String formato = "";
+  
+  private int tamanio;
+  
+  public String getFuente() {
+    return this.formato;
+  }
+  
+  public void setFuente(String formato) {
+    this.formato = formato;
+  }
+  
+  public int getTamanio() {
+    return this.tamanio;
+  }
+  
+  public void setTamanio(int tamanio) {
+    this.tamanio = tamanio;
+  }
+  
+  public String getTabla() {
+    return this.tabla;
+  }
+  
+  public void setTabla(String tabla) {
+    this.tabla = tabla;
+  }
+  
+  public int ValidaTitulos(String psCadena) {
+    int valor = 0;
+    String lsCadena = "Cupon,CANT,DESCRIPCION,Usuario,Fecha";
+    String[] arreglo = lsCadena.split(",");
+    for (int i = 0; i < arreglo.length; i++) {
+      if (psCadena.indexOf(arreglo[i]) >= 0)
+        valor = 1; 
+    } 
+    return valor;
+  }
+  
+  public void drawCenteredString(String s, int w, int h, Graphics g, int py) {
+    FontMetrics fm = g.getFontMetrics();
+    int x = (w - fm.stringWidth(s)) / 2;
+    g.drawString(s, x, py);
+  }
+  
+  public void drawStringDerA(Graphics g, String line, int wc, int lineW, int y, int valor) {
+    g.drawString(line, valor - lineW, y);
+  }
+  
+  public int print(Graphics g, PageFormat pageFormat, int page) {
+    try {
+      Graphics2D g2d = (Graphics2D)g;
+      g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+      int lInicio = 0;
+      int lFin = 0;
+      String lLinea = null;
+      String lLineaAux = null;
+      int x = 0;
+      int y = 0;
+      String ptabla = this.tabla;
+      x = 20;
+      y = 10;
+      int i = 0;
+      do {
+        if (i < 1) {
+          lInicio = ptabla.indexOf("<");
+          lFin = ptabla.indexOf(">");
+          lLinea = ptabla.substring(lInicio + 1, lFin);
+          String cadenaImp = ptabla.substring(lInicio + 1, lFin);
+          String linea1 = cadenaImp;
+          Font linea1Font = new Font(this.formato, 1, this.tamanio);
+          lLineaAux = ptabla.substring(ptabla.indexOf(">") + 1, ptabla.length());
+          g2d.setFont(linea1Font);
+          g2d.getFontMetrics(linea1Font);
+          if (i <= 2) {
+            Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+            g2d.setFont(fuenteTitulo);
+          } 
+          drawCenteredString(linea1, Integer.parseInt("200"), Integer.parseInt("100"), g2d, y);
+        } else {
+          lInicio = lLineaAux.indexOf("<");
+          lFin = lLineaAux.indexOf(">");
+          lLinea = String.valueOf(lLinea) + lLineaAux.substring(lInicio + 1, lFin);
+          String cadenaImp = lLineaAux.substring(lInicio + 1, lFin);
+          String linea2 = cadenaImp;
+          Font linea2Font = new Font(this.formato, 2, this.tamanio);
+          lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
+          g2d.setFont(linea2Font);
+          g2d.getFontMetrics(linea2Font);
+          if (linea2.indexOf("SgmenA") >= 0) {
+            String[] arreglo = linea2.split("SgmenA");
+            if (ValidaTitulos(arreglo[0]) == 1) {
+              Font fuenteTitulo1 = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTitulo1);
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 60, y);
+            } else {
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 60, y);
+            } 
+          } else if (linea2.indexOf("SgmenB") >= 0) {
+            String[] arreglo = linea2.split("SgmenB");
+            Font fuenteTitulo1 = new Font(this.formato, 1, this.tamanio);
+            g2d.setFont(fuenteTitulo1);
+            g2d.drawString(arreglo[0], 20, y);
+            Font fuenteTitulo2 = new Font(this.formato, 2, this.tamanio);
+            g2d.setFont(fuenteTitulo2);
+            g2d.drawString(arreglo[1], 60, y);
+          } else if (linea2.indexOf("QR") >= 0) {
+            String codigoqr = linea2.substring(3, linea2.length());
+            QRCodeWriter writer = new QRCodeWriter();
+            int width = 100, height = 100;
+            BigDecimal widthCenter = new BigDecimal(width / 2);
+            int imageCenter = widthCenter.intValue();
+            BigDecimal asd = new BigDecimal(width * 0.6D);
+            int dfg = asd.intValue();
+            BufferedImage image = new BufferedImage(width, height, 1);
+            int white = 16777215;
+            int black = 0;
+            try {
+              BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
+              for (int ii = 0; ii < width; ii++) {
+                for (int j = 0; j < height; j++)
+                  image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
+              } 
+              g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
+            } catch (WriterException e) {
+              e.printStackTrace();
+            } catch (Exception e) {
+              e.printStackTrace();
+            } 
+          } else if (ValidaTitulos(linea2) == 1) {
+            Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+            g2d.setFont(fuenteTitulo);
+            if (i == 2) {
+              drawCenteredString(linea2.trim(), Integer.parseInt("200"), Integer.parseInt("100"), g2d, y);
+            } else {
+              g2d.drawString(linea2, x, y);
+            } 
+          } else {
+            g2d.drawString(linea2, x, y);
+          } 
+        } 
+        y += 9;
+        i++;
+      } while (lLineaAux.indexOf(">") > 0);
+    } catch (Exception ex) {
+      Logger.getLogger(ProcesaCupones.class.getName()).log(Level.SEVERE, (String)null, ex);
+    } 
+    return 0;
+  }
+}

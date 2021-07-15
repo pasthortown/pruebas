@@ -1,0 +1,705 @@
+package com.corlasosa.kfc.despachador;
+
+import com.corlasosa.kfc.despachador.formateado.IntroPageOrden;
+import com.corlasosa.kfc.util.EscribeLog;
+import java.awt.print.Book;
+import java.awt.print.PageFormat;
+import java.awt.print.Paper;
+import java.awt.print.Printable;
+import java.awt.print.PrinterException;
+import java.awt.print.PrinterJob;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.ArrayList;
+import java.util.List;
+import javax.print.Doc;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintException;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashAttributeSet;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.standard.ColorSupported;
+import javax.print.attribute.standard.PrinterName;
+import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.html.HTML;
+import javax.swing.text.html.HTMLEditorKit;
+import javax.swing.text.html.parser.ParserDelegator;
+
+public class ProcesaOrdenPedido {
+  private FileWriter fichero = null;
+  
+  private static PrintWriter pw = null;
+  
+  private String nombreArchivoLocal = null;
+  
+  private static String rutaVoucherHtml = null;
+  
+  private String nombreArchivoVoucher = null;
+  
+  private String nombreImpresora = null;
+  
+  public static DocFlavor AUTO = DocFlavor.INPUT_STREAM.AUTOSENSE;
+  
+  public String tabla;
+  
+  private String FuenteLetra;
+  
+  private String TamanioLetra;
+  
+  private String CantidadCaracteresDescripcion;
+  
+  private String aumentoTamanioLetraOrden;
+  
+  private List<String> impresorasExcluidasQR;
+  
+  private EscribeLog prcEscribirlog;
+  
+  public static String[] linea;
+  
+  private int imprimio;
+  
+  public String getCantidadCaracteresDescripcion() {
+    return this.CantidadCaracteresDescripcion;
+  }
+  
+  public void setCantidadCaracteresDescripcion(String cantidadCaracteresDescripcion) {
+    this.CantidadCaracteresDescripcion = cantidadCaracteresDescripcion;
+  }
+  
+  public String getFuenteLetra() {
+    return this.FuenteLetra;
+  }
+  
+  public void setFuenteLetra(String fuenteLetra) {
+    this.FuenteLetra = fuenteLetra;
+  }
+  
+  public String getTamanioLetra() {
+    return this.TamanioLetra;
+  }
+  
+  public void setTamanioLetra(String tamanioLetra) {
+    this.TamanioLetra = tamanioLetra;
+  }
+  
+  public String getTabla() {
+    return this.tabla;
+  }
+  
+  public void setTabla(String tabla) {
+    this.tabla = tabla;
+  }
+  
+  public String getAumentoTamanioLetraOrden() {
+    return this.aumentoTamanioLetraOrden;
+  }
+  
+  public void setAumentoTamanioLetraOrden(String aumentoTamanioLetraOrden) {
+    this.aumentoTamanioLetraOrden = aumentoTamanioLetraOrden;
+  }
+  
+  public List<String> getImpresorasExcluidasQR() {
+    return this.impresorasExcluidasQR;
+  }
+  
+  public void setImpresorasExcluidasQR(List<String> impresorasExcluidasQR) {
+    this.impresorasExcluidasQR = impresorasExcluidasQR;
+  }
+  
+  public int getImprimio() {
+    return this.imprimio;
+  }
+  
+  public void setImprimio(int imprimio) {
+    this.imprimio = imprimio;
+  }
+  
+  public static void cortar() {
+    char[] ESC_CUT_PAPER = { '\033', 'm' };
+    pw.write(ESC_CUT_PAPER);
+  }
+  
+  public static void cortarFormato() {
+    char[] ESC_CUT_PAPER = { '\033', 'm' };
+    pw.println("");
+    pw.println("");
+    pw.println("");
+    pw.println("");
+    pw.write(ESC_CUT_PAPER);
+  }
+  
+  public static void leerUrl() throws IOException {
+    final StringBuilder sb = new StringBuilder();
+    List<String> list = new ArrayList<>();
+    ParserDelegator parserDelegator = new ParserDelegator();
+    HTMLEditorKit.ParserCallback parserCallback = new HTMLEditorKit.ParserCallback() {
+        public boolean readyForNewline;
+        
+        public boolean readyth;
+        
+        public void handleText(char[] data, int pos) {
+          String s = new String(data);
+          sb.append(s.trim());
+          this.readyForNewline = true;
+          this.readyth = true;
+        }
+        
+        public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos) {
+          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B || 
+            t == HTML.Tag.TR || t == HTML.Tag.TD || t == HTML.Tag.TH))
+            if (t == HTML.Tag.TD || t == HTML.Tag.TH) {
+              sb.append("<espacio>");
+              this.readyForNewline = true;
+            } else if (t == HTML.Tag.BR) {
+              sb.append("<salto>");
+              this.readyForNewline = true;
+            } else {
+              sb.append("<salto>");
+              this.readyForNewline = false;
+            }  
+        }
+        
+        public void handleEndTag(HTML.Tag t, int pos) {
+          if (this.readyForNewline && (t == HTML.Tag.DIV || t == HTML.Tag.BR || t == HTML.Tag.P || t == HTML.Tag.B)) {
+            sb.append("<salto>");
+            this.readyForNewline = false;
+          } 
+        }
+        
+        public void handleSimpleTag(HTML.Tag t, MutableAttributeSet a, int pos) {
+          handleStartTag(t, a, pos);
+        }
+        
+        public void handleComment(char[] data, int pos) {}
+        
+        public void handleError(String errMsg, int pos) {}
+      };
+    URL urlObject = new URL(rutaVoucherHtml);
+    URLConnection urlConnection = urlObject.openConnection();
+    InputStream inputStream = urlConnection.getInputStream();
+    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+    parserDelegator.parse(bufferedReader, parserCallback, true);
+    linea = sb.toString().split("<salto>");
+  }
+  
+  public void iniciaArchivoLocal() throws IOException {
+    this.fichero = new FileWriter(this.nombreArchivoLocal);
+    pw = new PrintWriter(this.fichero);
+  }
+  
+  public String getNombreArchivoLocal() {
+    return this.nombreArchivoLocal;
+  }
+  
+  public void setNombreArchivoLocal(String nombreArchivoLocal) {
+    this.nombreArchivoLocal = nombreArchivoLocal;
+  }
+  
+  public String getRutaVoucherHtml() {
+    return rutaVoucherHtml;
+  }
+  
+  public void setRutaVoucherHtml(String rutaVoucherHtml) {
+    ProcesaOrdenPedido.rutaVoucherHtml = rutaVoucherHtml;
+  }
+  
+  public String getNombreArchivoVoucher() {
+    return this.nombreArchivoVoucher;
+  }
+  
+  public void setNombreArchivoVoucher(String nombreArchivoVoucher) {
+    this.nombreArchivoVoucher = nombreArchivoVoucher;
+  }
+  
+  public String getNombreImpresora() {
+    return this.nombreImpresora;
+  }
+  
+  public void setNombreImpresora(String nombreImpresora) {
+    this.nombreImpresora = nombreImpresora;
+  }
+  
+  public static String removeCaracteres(String input) {
+    String original = ";
+    String ascii = "aaaeeeiiiooouuunAAAEEEIIIOOOUUUNcCo";
+    String output = input;
+    for (int i = 0; i < original.length(); i++) {
+      if (i <= ascii.length() - 1)
+        output = output.replace(original.charAt(i), ascii.charAt(i)); 
+    } 
+    output = output.replace(", "o");
+    output = output.replace("&aacute;", "a");
+    output = output.replace("&eacute;", "e");
+    output = output.replace("&iacute;", "i");
+    output = output.replace("&oacute;", "o");
+    output = output.replace("&uacute;", "u");
+    output = output.replace("&Aacute;", "A");
+    output = output.replace("&Eacute;", "E");
+    output = output.replace("&Iacute;", "I");
+    output = output.replace("&Oacute;", "O");
+    output = output.replace("&Uacute;", "U");
+    output = output.replace("&ntilde;", "n");
+    output = output.replace("&Ntilde;", "N");
+    output = output.replace("&ordm;", "o");
+    output = output.replace("&aacute", "a");
+    output = output.replace("&eacute", "e");
+    output = output.replace("&iacute", "i");
+    output = output.replace("&oacute", "o");
+    output = output.replace("&uacute", "u");
+    output = output.replace("&Aacute", "A");
+    output = output.replace("&Eacute", "E");
+    output = output.replace("&Iacute", "I");
+    output = output.replace("&Oacute", "O");
+    output = output.replace("&Uacute", "U");
+    output = output.replace("&ntilde", "n");
+    output = output.replace("&Ntilde", "N");
+    output = output.replace("&ordm", "o");
+    output = output.replace("&nbsp;", " ");
+    output = output.replace("&nbsp", " ");
+    output = output.replace("&Oacute;", "O");
+    output = output.replace("&Oacute", "O");
+    output = output.replace(", "o");
+    output = output.replace(", "O");
+    output = output.replace(", " ");
+    return output;
+  }
+  
+  public static void escribirCadena(String cadena) {
+    pw.println(cadena);
+  }
+  
+  public void cerrarArchivo() throws IOException {
+    this.fichero.close();
+  }
+  
+  public static String centraLinea(String cadena, int longitudLinea) {
+    String lsCadena = cadena;
+    int tamanioCadena = 0;
+    int completar = 0;
+    int valor = 0;
+    try {
+      tamanioCadena = lsCadena.length();
+      completar = (longitudLinea - tamanioCadena) / 2;
+      valor = tamanioCadena + completar;
+      lsCadena = String.format("%1$" + valor + "s", new Object[] { lsCadena });
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+    return lsCadena;
+  }
+  
+  public static void escribirCadenaLargaTitulo(String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String valor = null;
+    String a = null;
+    try {
+      while (lineaAux.length() > 34) {
+        valor = lineaAux.substring(0, 34);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            pw.println(linea);
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+      pw.println(linea);
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+  }
+  
+  public static void escribirCadenaLargaDetalle(String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String valor = null;
+    String a = null;
+    try {
+      while (lineaAux.length() > 42) {
+        valor = lineaAux.substring(0, 42);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            pw.println(linea);
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+      pw.println(linea);
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+  }
+  
+  public void imprimirArchivo() throws PrinterException, PrintException, IOException {
+    FileInputStream inputStream = null;
+    try {
+      inputStream = new FileInputStream(this.nombreArchivoLocal);
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } 
+    if (inputStream == null)
+      return; 
+    int idImpresora = -1;
+    DocFlavor docFormat = DocFlavor.INPUT_STREAM.AUTOSENSE;
+    Doc document = new SimpleDoc(inputStream, AUTO, null);
+    HashAttributeSet attributeSet = new HashAttributeSet();
+    attributeSet.add(new PrinterName(this.nombreImpresora, null));
+    attributeSet = new HashAttributeSet();
+    attributeSet.add(ColorSupported.NOT_SUPPORTED);
+    PrintService[] services = PrintServiceLookup.lookupPrintServices(AUTO, attributeSet);
+    this.imprimio = 0;
+    for (int x = 0; x < services.length; x++) {
+      if (services[x].getName().compareToIgnoreCase(this.nombreImpresora) == 0)
+        idImpresora = x; 
+    } 
+    if (services != null && 
+      idImpresora >= 0)
+      try {
+        DocPrintJob printJob = services[idImpresora].createPrintJob();
+        printJob.print(document, new HashPrintRequestAttributeSet());
+        this.imprimio = 1;
+      } catch (Exception e) {
+        e.printStackTrace();
+      }  
+    inputStream.close();
+  }
+  
+  public int borrarArchivo() {
+    File fichero = new File(this.nombreArchivoLocal);
+    int valor = 0;
+    if (fichero.delete())
+      valor = 1; 
+    fichero = new File(this.nombreArchivoVoucher);
+    if (fichero.delete())
+      valor = 1; 
+    return valor;
+  }
+  
+  public static void EscribirArchivo() {
+    for (int x = 0; x < linea.length; x++) {
+      if (x >= 1)
+        if (linea[x].indexOf("<espacio>") > 0) {
+          String cadena, valor1 = linea[x].substring(0, linea[x].indexOf("<espacio>"));
+          String valor2 = linea[x].substring(linea[x].indexOf("<espacio>") + 9, linea[x].length());
+          if (x == 2) {
+            cadena = String.format("%1$6s", new Object[] { valor1 });
+            cadena = String.valueOf(cadena) + String.format("%1$32s", new Object[] { valor2 });
+          } else if (x == 3) {
+            cadena = String.format("%1$-19s", new Object[] { valor1 });
+            cadena = String.valueOf(cadena) + String.format("%1$19s", new Object[] { valor2 });
+          } else {
+            cadena = String.format("%1$-9s", new Object[] { valor1 });
+            cadena = String.valueOf(cadena) + String.format("%1$-29s", new Object[] { valor2 });
+          } 
+          String cadenaImp = removeCaracteres(cadena);
+          escribirCadena(cadenaImp);
+        } else {
+          String cadena = linea[x];
+          String cadenaImp = removeCaracteres(cadena);
+          escribirCadena(cadenaImp);
+        }  
+    } 
+    escribirCadena("");
+    escribirCadena("");
+    escribirCadena("");
+    cortar();
+  }
+  
+  public String EscribirArchivoFormato() {
+    String cadena = "";
+    String valor1 = "";
+    String valor2 = "";
+    String cadenaImp = "";
+    String cadenaAux = "";
+    String cadenatmp = "";
+    String Cadena = "";
+    int contador = 0;
+    int cant = 0;
+    int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
+    boolean flag = false;
+    String comentario = "";
+    for (int x = 0; x < linea.length; x++) {
+      if (x >= 1) {
+        if (linea[x].indexOf("<espacio>") >= 0) {
+          String[] lsdetalle = linea[x].split("<espacio>");
+          if (lsdetalle.length == 2) {
+            if (Integer.parseInt(this.TamanioLetra) > 8 && lsdetalle[1].length() > cantidadCaracteres) {
+              cadenaImp = escribirCadenaLargaDetalleFormato(lsdetalle[0].trim(), lsdetalle[1].trim());
+              flag = true;
+            } 
+            if (linea[x].indexOf("CANT.") >= 0) {
+              cadena = String.valueOf(lsdetalle[0].trim()) + "SgmenB" + lsdetalle[1].trim();
+              cadena = removeCaracteres(cadena);
+              cadenaImp = "<" + cadena + ">";
+            } else if (!flag) {
+              cadena = String.valueOf(lsdetalle[0].trim()) + "SgmenB" + lsdetalle[1].trim();
+              cadena = removeCaracteres(cadena);
+              cadenaImp = "<" + cadena + ">";
+            } else {
+              cadena = cadenaImp;
+              cadena = removeCaracteres(cadena);
+              cadenaImp = cadena;
+            } 
+          } 
+        } else {
+          cadena = linea[x];
+          if (cadena.indexOf("QR") >= 0) {
+            cadenaImp = cadena;
+          } else if (cadena.indexOf("---") >= 0) {
+            cadena = String.valueOf(cadena) + "------------------";
+          } else if (Integer.parseInt(this.TamanioLetra) > 8 && cadena.length() > cantidadCaracteres) {
+            cadenaImp = escribirCadenaLargaComentarioFormato(cadena.trim());
+            flag = true;
+          } 
+          if (!flag) {
+            cadenaImp = removeCaracteres(cadena);
+            cadenaImp = "<" + cadenaImp + ">";
+          } else {
+            cadena = cadenaImp;
+            cadena = removeCaracteres(cadena);
+            cadenaImp = cadena;
+          } 
+        } 
+        if (cadena.indexOf("pp00m") >= 0)
+          cadenaImp = "<" + cadena + ">\n<>"; 
+        cadenaAux = String.valueOf(cadenaAux) + cadenaImp + "\n";
+      } 
+      cant = x;
+      flag = false;
+    } 
+    cadenaAux = String.valueOf(cadenaAux) + "\n";
+    cadenaAux = String.valueOf(cadenaAux) + "\n";
+    this.tabla = cadenaAux;
+    return cadenaAux;
+  }
+  
+  public String escribirCadenaLargaDetalleFormato(String desCantidad, String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String linea2 = "";
+    String valor = null;
+    String a = null;
+    int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
+    int contador = 0;
+    try {
+      while (lineaAux.length() > cantidadCaracteres) {
+        valor = lineaAux.substring(0, cantidadCaracteres);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            if (contador == 0) {
+              linea2 = String.valueOf(linea2) + "<" + desCantidad + "SgmenB" + linea + ">" + "\n";
+              contador++;
+            } else {
+              linea2 = String.valueOf(linea2) + "< " + "SgmenB" + linea + ">" + "\n";
+            } 
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+      linea2 = String.valueOf(linea2) + "< " + "SgmenB" + linea + ">";
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+    return linea2;
+  }
+  
+  public String escribirCadenaLargaComentarioFormato(String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String linea2 = "";
+    String valor = null;
+    String a = null;
+    int cantidadCaracteres = Integer.parseInt(this.CantidadCaracteresDescripcion);
+    try {
+      while (lineaAux.length() > cantidadCaracteres) {
+        valor = lineaAux.substring(0, cantidadCaracteres);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            linea2 = String.valueOf(linea2) + "<" + linea + ">" + "\n";
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+      linea2 = String.valueOf(linea2) + "<" + linea + ">";
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+    return linea2;
+  }
+  
+  public static String escribirCadenaLargaTitulo2(String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String linea2 = "";
+    String valor = null;
+    String a = null;
+    try {
+      while (lineaAux.length() > 34) {
+        valor = lineaAux.substring(0, 34);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            pw.println(linea);
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+    linea2 = String.valueOf(linea2) + "<" + linea + ">";
+    return linea2;
+  }
+  
+  public static String escribirCadenaLargaDetalle2(String cadena) {
+    String linea = cadena;
+    String lineaAux = linea;
+    String linea2 = "";
+    String valor = null;
+    String a = null;
+    try {
+      while (lineaAux.length() > 42) {
+        valor = lineaAux.substring(0, 42);
+        for (int n = valor.length() - 1; n >= 0; n--) {
+          char c = valor.charAt(n);
+          a = Character.toString(c);
+          if (a.equals(" ")) {
+            linea = lineaAux.substring(0, n);
+            pw.println(linea);
+            lineaAux = lineaAux.substring(n + 1, lineaAux.length());
+            break;
+          } 
+        } 
+      } 
+      linea = lineaAux;
+      linea2 = String.valueOf(linea2) + "<" + linea + ">";
+    } catch (Exception e) {
+      e.printStackTrace();
+    } 
+    return linea2;
+  }
+  
+  private static PageFormat getMinimumMarginPageFormat(PrinterJob printJob) {
+    PageFormat pf0 = printJob.defaultPage();
+    PageFormat pf1 = (PageFormat)pf0.clone();
+    Paper p = pf0.getPaper();
+    p.setImageableArea(0.0D, 0.0D, pf0.getWidth(), pf0.getHeight() + 1000.0D);
+    pf1.setPaper(p);
+    PageFormat pf2 = printJob.validatePage(pf1);
+    return pf2;
+  }
+  
+  public void impresionFormato() throws Exception {
+    int idImpresora = -1;
+    PrinterJob printJob = PrinterJob.getPrinterJob();
+    Book book = new Book();
+    IntroPageOrden pagina = new IntroPageOrden();
+    pagina.setTabla(this.tabla);
+    pagina.setFuente(this.FuenteLetra);
+    pagina.setTamanio(Integer.parseInt(this.TamanioLetra));
+    pagina.setAumentoTamanioLetraOrden(Integer.parseInt(this.aumentoTamanioLetraOrden));
+    pagina.setNombreImpresora(this.nombreImpresora);
+    pagina.setNombreImpresora(getNombreImpresora());
+    pagina.setImpresorasExcluidasQR(getImpresorasExcluidasQR());
+    book.append((Printable)pagina, getMinimumMarginPageFormat(printJob));
+    printJob.setPageable(book);
+    PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
+    HashAttributeSet aset = new HashAttributeSet();
+    services = PrintServiceLookup.lookupPrintServices(null, aset);
+    PrintService[] printers = PrintServiceLookup.lookupPrintServices(null, 
+        aset);
+    this.imprimio = 0;
+    for (int x = 0; x < services.length; x++) {
+      if (printers[x].getName().compareToIgnoreCase(this.nombreImpresora) == 0)
+        idImpresora = x; 
+    } 
+    if (services != null && 
+      idImpresora >= 0)
+      try {
+        printJob.setPrintService(printers[idImpresora]);
+        printJob.print();
+        this.imprimio = 1;
+      } catch (Exception PrintException) {
+        PrintException.printStackTrace();
+      }  
+  }
+  
+  public void impresionFormatojob() throws Exception {
+    int idImpresora = -1;
+    this.imprimio = 0;
+    HashAttributeSet aset = new HashAttributeSet();
+    aset.add(new PrinterName(this.nombreImpresora, null));
+    aset = new HashAttributeSet();
+    aset.add(ColorSupported.NOT_SUPPORTED);
+    PrintService[] services = PrintServiceLookup.lookupPrintServices(AUTO, aset);
+    for (int x = 0; x < services.length; x++) {
+      if (services[x].getName().compareToIgnoreCase(this.nombreImpresora) == 0)
+        idImpresora = x; 
+    } 
+    if (services != null && 
+      idImpresora >= 0)
+      try {
+        PrinterJob printJob = PrinterJob.getPrinterJob();
+        Book book = new Book();
+        IntroPageOrden pagina = new IntroPageOrden();
+        pagina.setTabla(this.tabla);
+        pagina.setFuente(this.FuenteLetra);
+        pagina.setTamanio(Integer.parseInt(this.TamanioLetra));
+        pagina.setAumentoTamanioLetraOrden(Integer.parseInt(this.aumentoTamanioLetraOrden));
+        pagina.setNombreImpresora(getNombreImpresora());
+        pagina.setImpresorasExcluidasQR(getImpresorasExcluidasQR());
+        book.append((Printable)pagina, getMinimumMarginPageFormat(printJob));
+        printJob.setPageable(book);
+        printJob.setPrintService(services[idImpresora]);
+        printJob.print();
+        this.imprimio = 1;
+      } catch (Exception PrintException) {
+        PrintException.printStackTrace();
+      }  
+  }
+  
+  public static String getStackTrace(Throwable aThrowable) {
+    Writer result = new StringWriter();
+    PrintWriter printWriter = new PrintWriter(result);
+    aThrowable.printStackTrace(printWriter);
+    return result.toString();
+  }
+}

@@ -1,0 +1,997 @@
+package com.corlasosa.kfc.despachador;
+
+import com.corlasosa.kfc.util.SingletonConexionDB;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import javax.print.Doc;
+import javax.print.DocFlavor;
+import javax.print.DocPrintJob;
+import javax.print.PrintException;
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import javax.print.SimpleDoc;
+import javax.print.attribute.HashAttributeSet;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.standard.ColorSupported;
+import javax.print.attribute.standard.PrinterName;
+
+public class ServicioImpresion {
+  private static ProcesaFactura prcFactura;
+  
+  private static ProcesaXML procesaXML;
+  
+  private static ProcesaVoucher prcVoucher;
+  
+  private static ProcesaNotaCredito prcNotaCredito;
+  
+  private static ProcesaCreditoEmpleado prcCreditoEMPL;
+  
+  private static ProcesaTest prcTest;
+  
+  private static ProcesaOrdenPedido prcOrdenPedido;
+  
+  private static ProcesaOrdenPedidoKDS prcOrdenPedidoKDS;
+  
+  private static ProcesaOrdenHorneado prcOrdenHorneado;
+  
+  private static ProcesaRetiroFondo prcRetiroFondo;
+  
+  private static ProcesaRetiroEfectivo prcRetiroEfectivo;
+  
+  private static ProcesaRetiroFormaPago prcRetiroFormaPago;
+  
+  private static ProcesaFinDia prcFinDia;
+  
+  private static ProcesaFinDiaDian prcFinDiaDian;
+  
+  private static ProcesaFinDiaDianResumen prcFinDiaDianResumen;
+  
+  private static ProcesaFinDiaDianVentasPorDepartamento prcFinDiaDianVentasPorDepartamento;
+  
+  private static ProcesarCorteEnX prcCorteX;
+  
+  private static ProcesaCupones prcCupon;
+  
+  private static ProcesaDesasignarCajero prcCajero;
+  
+  private static ProcesaPromocionCupones prcPromoCupones;
+  
+  private static ProcesaImagen prcImagen;
+  
+  private static ProcesaDetalleCupon prcDetalleCupon;
+  
+  private static ProcesaEgresoTransferencia prcEgreso;
+  
+  private static ProcesaPreCuenta prcPrecuenta;
+  
+  private InputStream arImagen = null;
+  
+  public static void despachoImpresion() throws InterruptedException {
+    System.out.println("Despacha Impresion");
+    InputStream arImagen = null;
+    try {
+      SingletonConexionDB lServicioConexion = new SingletonConexionDB();
+      Properties lconfiguraciones = (new Configuraciones()).getPropiedades();
+      String lsTamanioLetra = lconfiguraciones.getProperty("valor.tamanio");
+      String lsFuenteLetra = lconfiguraciones.getProperty("valor.fuente");
+      String lsAumentoTamanioLetraOrden = lconfiguraciones.getProperty("valor.aumento.no.orden");
+      String lsImpresorasExcluidas = lconfiguraciones.getProperty("nombre.impresoras.excluidas.qr");
+      List<String> impresorasExcluidasQR = Arrays.asList(lsImpresorasExcluidas.split("_"));
+      String lsQuery = lconfiguraciones.getProperty("query.consulta");
+      String lsUpdate = lconfiguraciones.getProperty("query.update");
+      String lsUpdateError = lconfiguraciones.getProperty("query.update_error");
+      String lsRuta = lconfiguraciones.getProperty("ruta.directorio");
+      String lsBanderaImpresion = lconfiguraciones.getProperty("bandera.impresion");
+      String lsBanderaImpresionOrden = lconfiguraciones.getProperty("bandera.impresion.orden");
+      lsBanderaImpresionOrden = (lsBanderaImpresionOrden != null) ? lsBanderaImpresionOrden : lsBanderaImpresion;
+      lServicioConexion.setUsuario(lconfiguraciones.getProperty("spring.datasource.username"));
+      lServicioConexion.setClave(lconfiguraciones.getProperty("spring.datasource.password"));
+      lServicioConexion.setUrlConexion(lconfiguraciones.getProperty("spring.datasource.url"));
+      String lsCantidadCaracteresDes = lconfiguraciones.getProperty("valor.longitud_descripcion");
+      Connection con = lServicioConexion.obtenerConexion();
+      System.out.println("Trajo conexion");
+      InetAddress addr = InetAddress.getLocalHost();
+      String lsIpPOS = addr.getHostAddress();
+      PreparedStatement lps_pstmt = null;
+      PreparedStatement l_ps = null;
+      ResultSet lrs = null;
+      String lsCadena = "";
+      String lsNombreImpresora = "";
+      String dummy = null;
+      String cod_factura = null;
+      String lsIdCanal = "";
+      String lsBanderaImagen = lconfiguraciones.getProperty("bandera.imagen");
+      String lsArchivo = "";
+      String lsUrl = "";
+      int accion = 0;
+      try {
+        lps_pstmt = con.prepareStatement(lsQuery);
+        lps_pstmt.setString(1, lsIpPOS);
+        lrs = lps_pstmt.executeQuery();
+        while (lrs.next()) {
+          accion = 0;
+          lsCadena = lrs.getString("imp_fecha").toString().trim();
+          lsCadena = lsCadena.replace(" ", "");
+          lsCadena = lsCadena.replace(":", "-");
+          lsCadena = lsCadena.replace(".", "-");
+          lsIdCanal = lrs.getString("IDCanalMovimiento").toString();
+          lsNombreImpresora = lrs.getString("imp_impresora");
+          if (lsNombreImpresora == null) {
+            lsNombreImpresora = lconfiguraciones.getProperty("nombre.impresora");
+          } else if (lsNombreImpresora.length() <= 3) {
+            lsNombreImpresora = lconfiguraciones.getProperty("nombre.impresora");
+          } 
+          lsNombreImpresora = lsNombreImpresora.replace("\"", "");
+          lsUrl = lrs.getString("imp_url");
+          if (lsUrl == null)
+            throw new Exception("La URL de Impresion esta Vacia"); 
+          if (lsUrl.indexOf("http://") < 0)
+            lsUrl = "http://" + lsUrl; 
+          if (lsUrl.indexOf("impresion_factura.php") > 0 && lsUrl.indexOf("tipo_comprobante=F") > 0) {
+            prcFactura = new ProcesaFactura();
+            prcFactura.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\factura_" + lsCadena + ".txt");
+            prcFactura.setRutaFacturaHtml(lsUrl);
+            prcFactura.setNombreArchivoFactura(String.valueOf(lsRuta) + "\\factura_" + lsCadena + ".html");
+            prcFactura.setNombreImpresora(lsNombreImpresora);
+            prcFactura.iniciaArchivoLocal();
+            ProcesaFactura.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcFactura.setFuenteLetra(lsFuenteLetra);
+              prcFactura.setTamanioLetra(lsTamanioLetra);
+              prcFactura.setAumentoTamanioLetraOrden(lsAumentoTamanioLetraOrden);
+              prcFactura.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+              prcFactura.EscribirArchivoFormato();
+              prcFactura.impresionFormatojob();
+              ProcesaFactura.cortarFormato();
+            } else {
+              ProcesaFactura.EscribirArchivo();
+            } 
+            prcFactura.cerrarArchivo();
+            prcFactura.imprimirArchivo();
+            prcFactura.borrarArchivo();
+            if (prcFactura.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+            String[] Arreglo = lsUrl.split("cfac_id=");
+            dummy = Arreglo[1];
+            Arreglo = dummy.split("&");
+            cod_factura = Arreglo[0];
+            procesaXML = new ProcesaXML();
+            procesaXML.setlConexion(con);
+            procesaXML.setIpEstacion(lsIpPOS);
+            procesaXML.setNumeroFactura(cod_factura);
+            procesaXML.iniciaArchivo("F");
+            procesaXML.crearXml("F");
+            procesaXML = null;
+          } else if (lsUrl.indexOf("impresion_vaucher.php") > 0) {
+            prcVoucher = new ProcesaVoucher();
+            prcVoucher.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".txt");
+            prcVoucher.setRutaVoucherHtml(lsUrl);
+            prcVoucher.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".html");
+            prcVoucher.setNombreImpresora(lsNombreImpresora);
+            prcVoucher.iniciaArchivoLocal();
+            ProcesaVoucher.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcVoucher.setFuenteLetra(lsFuenteLetra);
+              prcVoucher.setTamanioLetra(lsTamanioLetra);
+              prcVoucher.EscribirArchivoFormato();
+              prcVoucher.impresionFormatojob();
+              ProcesaVoucher.cortarFormato();
+            } else {
+              prcVoucher.EscribirArchivo();
+            } 
+            prcVoucher.cerrarArchivo();
+            prcVoucher.imprimirArchivo();
+            prcVoucher.borrarArchivo();
+            if (prcVoucher.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_voucher_generico.php") > 0) {
+            prcVoucher = new ProcesaVoucher();
+            prcVoucher.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".txt");
+            prcVoucher.setRutaVoucherHtml(lsUrl);
+            prcVoucher.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\voucher_" + lsCadena + ".html");
+            prcVoucher.setNombreImpresora(lsNombreImpresora);
+            prcVoucher.iniciaArchivoLocal();
+            ProcesaVoucher.leerUrl();
+            prcVoucher.EscribirArchivoVoucher();
+            prcVoucher.cerrarArchivo();
+            prcVoucher.imprimirArchivo();
+            prcVoucher.borrarArchivo();
+            if (prcVoucher.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_factura.php") > 0 && lsUrl.indexOf("tipo_comprobante=N") > 0) {
+            prcNotaCredito = new ProcesaNotaCredito();
+            prcNotaCredito.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\notac_" + lsCadena + ".txt");
+            prcNotaCredito.setRutaVoucherHtml(lsUrl);
+            prcNotaCredito.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\notac_" + lsCadena + ".html");
+            prcNotaCredito.setNombreImpresora(lsNombreImpresora);
+            prcNotaCredito.iniciaArchivoLocal();
+            ProcesaNotaCredito.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcNotaCredito.setFuenteLetra(lsFuenteLetra);
+              prcNotaCredito.setTamanioLetra(lsTamanioLetra);
+              prcNotaCredito.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+              prcNotaCredito.EscribirArchivoFormato();
+              prcNotaCredito.impresionFormatojob();
+              ProcesaNotaCredito.cortarFormato();
+            } else {
+              ProcesaNotaCredito.EscribirArchivo();
+            } 
+            prcNotaCredito.cerrarArchivo();
+            prcNotaCredito.imprimirArchivo();
+            prcNotaCredito.borrarArchivo();
+            if (prcNotaCredito.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+            String[] Arreglo = lsUrl.split("cfac_id=");
+            dummy = Arreglo[1];
+            Arreglo = dummy.split("&");
+            cod_factura = Arreglo[0];
+            procesaXML = new ProcesaXML();
+            procesaXML.setlConexion(con);
+            procesaXML.setIpEstacion(lsIpPOS);
+            procesaXML.setNumeroFactura(cod_factura);
+            procesaXML.iniciaArchivo("N");
+            procesaXML.crearXml("N");
+            procesaXML = null;
+          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && 
+            lsUrl.indexOf("opcionFp=EMPLEADO") > 0) {
+            prcCreditoEMPL = new ProcesaCreditoEmpleado();
+            prcCreditoEMPL.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\creditoempl_" + lsCadena + ".txt");
+            prcCreditoEMPL.setRutaVoucherHtml(lsUrl);
+            prcCreditoEMPL.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\creditoempl_" + lsCadena + ".html");
+            prcCreditoEMPL.setNombreImpresora(lsNombreImpresora);
+            prcCreditoEMPL.iniciaArchivoLocal();
+            ProcesaCreditoEmpleado.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcCreditoEMPL.setFuenteLetra(lsFuenteLetra);
+              prcCreditoEMPL.setTamanioLetra(lsTamanioLetra);
+              prcCreditoEMPL.EscribirArchivoFormato();
+              prcCreditoEMPL.impresionFormatojob();
+              ProcesaCreditoEmpleado.cortarFormato();
+            } else {
+              ProcesaCreditoEmpleado.EscribirArchivo();
+            } 
+            prcCreditoEMPL.cerrarArchivo();
+            prcCreditoEMPL.imprimirArchivo();
+            prcCreditoEMPL.borrarArchivo();
+            if (prcCreditoEMPL.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_test.php") > 0) {
+            prcTest = new ProcesaTest();
+            prcTest.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\test_" + lsCadena + ".txt");
+            prcTest.setRutaTestHtml(lsUrl);
+            prcTest.setnombreArchivoTest(String.valueOf(lsRuta) + "\\test_" + lsCadena + ".html");
+            prcTest.setNombreImpresora(lsNombreImpresora);
+            prcTest.iniciaArchivoLocal();
+            ProcesaTest.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcTest.setFuenteLetra(lsFuenteLetra);
+              prcTest.setTamanioLetra(lsTamanioLetra);
+              prcTest.EscribirArchivoFormato();
+              prcTest.impresionFormatojob();
+              ProcesaTest.cortarFormato();
+            } else {
+              ProcesaTest.EscribirArchivo();
+            } 
+            prcTest.cerrarArchivo();
+            prcTest.imprimirArchivo();
+            prcTest.borrarArchivo();
+            if (prcTest.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("imprimir_ordenpedido.php") > 0) {
+            if (lsNombreImpresora.equals("VCOCINA")) {
+              System.out.println("Entro_OrdenPedido");
+              prcOrdenPedidoKDS = new ProcesaOrdenPedidoKDS();
+              prcOrdenPedidoKDS.setNombreArchivoLocal(
+                  String.valueOf(String.valueOf(lsRuta)) + "\\ordenpedido_" + lsCadena + ".txt");
+              prcOrdenPedidoKDS.setRutaVoucherHtml(lsUrl);
+              prcOrdenPedidoKDS.setNombreArchivoVoucher(
+                  String.valueOf(String.valueOf(lsRuta)) + "\\ordenpedido_" + lsCadena + ".html");
+              prcOrdenPedidoKDS.setNombreImpresora(lsNombreImpresora);
+              prcOrdenPedidoKDS.iniciaArchivoLocal();
+              ProcesaOrdenPedidoKDS.leerUrl();
+              if (lsBanderaImpresion.equals("0")) {
+                String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
+                String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
+                prcOrdenPedidoKDS.setFuenteLetra(lsFuenteLetra);
+                prcOrdenPedidoKDS.setTamanioLetra(tamanioFuente);
+                prcOrdenPedidoKDS.setCantidadCaracteresDescripcion(cantidadCaracteres);
+                prcOrdenPedidoKDS.EscribirArchivoFormato();
+                prcOrdenPedidoKDS.impresionFormatojob();
+                ProcesaOrdenPedidoKDS.cortarFormato();
+              } else {
+                ProcesaOrdenPedidoKDS.EscribirArchivo();
+              } 
+              prcOrdenPedidoKDS.cerrarArchivo();
+              prcOrdenPedidoKDS.imprimirArchivo();
+              prcOrdenPedidoKDS.borrarArchivo();
+              if (prcOrdenPedidoKDS.getImprimio() == 1) {
+                accion = 1;
+              } else {
+                accion = 0;
+              } 
+            } else {
+              System.out.println("Entro_OrdenPedido");
+              prcOrdenPedido = new ProcesaOrdenPedido();
+              prcOrdenPedido.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".txt");
+              prcOrdenPedido.setRutaVoucherHtml(lsUrl);
+              prcOrdenPedido.setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedido_" + lsCadena + ".html");
+              prcOrdenPedido.setImpresorasExcluidasQR(impresorasExcluidasQR);
+              prcOrdenPedido.setNombreImpresora(lsNombreImpresora);
+              prcOrdenPedido.iniciaArchivoLocal();
+              ProcesaOrdenPedido.leerUrl();
+              if (lsBanderaImpresionOrden.equals("1")) {
+                String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
+                String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
+                prcOrdenPedido.setFuenteLetra(lsFuenteLetra);
+                prcOrdenPedido.setTamanioLetra(tamanioFuente);
+                prcOrdenPedido.setAumentoTamanioLetraOrden(lsAumentoTamanioLetraOrden);
+                prcOrdenPedido.setCantidadCaracteresDescripcion(cantidadCaracteres);
+                prcOrdenPedido.EscribirArchivoFormato();
+                prcOrdenPedido.impresionFormatojob();
+                ProcesaOrdenPedido.cortarFormato();
+              } else {
+                ProcesaOrdenPedido.EscribirArchivo();
+              } 
+              prcOrdenPedido.cerrarArchivo();
+              prcOrdenPedido.imprimirArchivo();
+              prcOrdenPedido.borrarArchivo();
+              if (prcOrdenPedido.getImprimio() == 1) {
+                accion = 1;
+              } else {
+                accion = 0;
+              } 
+            } 
+          } else if (lsUrl.indexOf("impresion_RetiroFondo.php") > 0) {
+            prcRetiroFondo = new ProcesaRetiroFondo();
+            prcRetiroFondo.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\retirofondo_" + lsCadena + ".txt");
+            prcRetiroFondo.setRutaFondoHtml(lsUrl);
+            prcRetiroFondo.setNombreArchivoFondo(String.valueOf(lsRuta) + "\\retirofondo_" + lsCadena + ".html");
+            prcRetiroFondo.setNombreImpresora(lsNombreImpresora);
+            prcRetiroFondo.iniciaArchivoLocal();
+            ProcesaRetiroFondo.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcRetiroFondo.setFuenteLetra(lsFuenteLetra);
+              prcRetiroFondo.setTamanioLetra(lsTamanioLetra);
+              prcRetiroFondo.EscribirArchivoFormato();
+              prcRetiroFondo.impresionFormatojob();
+              ProcesaRetiroFondo.cortarFormato();
+            } else {
+              ProcesaRetiroFondo.EscribirArchivo();
+            } 
+            prcRetiroFondo.cerrarArchivo();
+            prcRetiroFondo.imprimirArchivo();
+            prcRetiroFondo.borrarArchivo();
+            if (prcRetiroFondo.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_RetiroEfectivo.php") > 0 && lsUrl.indexOf("&tipo=RE") > 0) {
+            prcRetiroEfectivo = new ProcesaRetiroEfectivo();
+            prcRetiroEfectivo.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\retiroefectivo_" + lsCadena + ".txt");
+            prcRetiroEfectivo.setRutaRetiroEHtml(lsUrl);
+            prcRetiroEfectivo.setNombreArchivoRetiroE(String.valueOf(lsRuta) + "\\retiroefectivo_" + lsCadena + ".html");
+            prcRetiroEfectivo.setNombreImpresora(lsNombreImpresora);
+            prcRetiroEfectivo.iniciaArchivoLocal();
+            ProcesaRetiroEfectivo.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcRetiroEfectivo.setFuenteLetra(lsFuenteLetra);
+              prcRetiroEfectivo.setTamanioLetra(lsTamanioLetra);
+              prcRetiroEfectivo.EscribirArchivoFormato();
+              prcRetiroEfectivo.impresionFormatojob();
+              ProcesaRetiroEfectivo.cortarFormato();
+            } else {
+              ProcesaRetiroEfectivo.EscribirArchivo();
+            } 
+            prcRetiroEfectivo.cerrarArchivo();
+            prcRetiroEfectivo.imprimirArchivo();
+            prcRetiroEfectivo.borrarArchivo();
+            if (prcRetiroEfectivo.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_RetiroEfectivo.php") > 0 && lsUrl.indexOf("&tipo=RFP") > 0) {
+            prcRetiroFormaPago = new ProcesaRetiroFormaPago();
+            prcRetiroFormaPago.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\retirofpago_" + lsCadena + ".txt");
+            prcRetiroFormaPago.setRutaRetiroFHtml(lsUrl);
+            prcRetiroFormaPago.setNombreArchivoRetiroF(String.valueOf(lsRuta) + "\\retirofpago_" + lsCadena + ".html");
+            prcRetiroFormaPago.setNombreImpresora(lsNombreImpresora);
+            prcRetiroFormaPago.iniciaArchivoLocal();
+            ProcesaRetiroFormaPago.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcRetiroFormaPago.setFuenteLetra(lsFuenteLetra);
+              prcRetiroFormaPago.setTamanioLetra(lsTamanioLetra);
+              prcRetiroFormaPago.EscribirArchivoFormato();
+              prcRetiroFormaPago.impresionFormatojob();
+              ProcesaRetiroFormaPago.cortarFormato();
+            } else {
+              ProcesaRetiroFormaPago.EscribirArchivo();
+            } 
+            prcRetiroFormaPago.cerrarArchivo();
+            prcRetiroFormaPago.imprimirArchivo();
+            prcRetiroFormaPago.borrarArchivo();
+            if (prcRetiroFormaPago.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_FindelDia.php") > 0) {
+            prcFinDia = new ProcesaFinDia();
+            prcFinDia.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
+            prcFinDia.setRutaFinDiaHtml(lsUrl);
+            prcFinDia.setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
+            prcFinDia.setNombreImpresora(lsNombreImpresora);
+            prcFinDia.iniciaArchivoLocal();
+            ProcesaFinDia.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcFinDia.setFuenteLetra(lsFuenteLetra);
+              prcFinDia.setTamanioLetra(lsTamanioLetra);
+              prcFinDia.EscribirArchivoFormato();
+              prcFinDia.impresionFormatojob();
+              ProcesaFinDia.cortarFormato();
+            } else {
+              ProcesaFinDia.EscribirArchivo();
+            } 
+            prcFinDia.cerrarArchivo();
+            prcFinDia.imprimirArchivo();
+            prcFinDia.borrarArchivo();
+            if (prcFinDia.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_FindelDia_Dian.php") > 0) {
+            prcFinDiaDian = new ProcesaFinDiaDian();
+            prcFinDiaDian.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
+            prcFinDiaDian.setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
+            prcFinDiaDian.setNombreImpresora(lsNombreImpresora);
+            prcFinDiaDian.iniciaArchivoLocal();
+            ProcesaFinDiaDian.leerUrl(lsUrl);
+            if (lsBanderaImpresion.equals("1")) {
+              prcFinDiaDian.setFuenteLetra(lsFuenteLetra);
+              prcFinDiaDian.setTamanioLetra(lsTamanioLetra);
+              prcFinDiaDian.EscribirArchivoFormato();
+              prcFinDiaDian.impresionFormatojob();
+              ProcesaFinDiaDian.cortarFormato();
+            } else {
+              ProcesaFinDiaDian.EscribirArchivo();
+            } 
+            prcFinDiaDian.cerrarArchivo();
+            prcFinDiaDian.imprimirArchivo();
+            prcFinDiaDian.borrarArchivo();
+            if (prcFinDiaDian.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_FindelDia_Dian_Resumen.php") > 0) {
+            prcFinDiaDianResumen = new ProcesaFinDiaDianResumen();
+            prcFinDiaDianResumen.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
+            ProcesaFinDiaDianResumen.setRutaFinDiaDianResumenHtml(lsUrl);
+            prcFinDiaDianResumen.setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
+            prcFinDiaDianResumen.setNombreImpresora(lsNombreImpresora);
+            prcFinDiaDianResumen.iniciaArchivoLocal();
+            ProcesaFinDiaDianResumen.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcFinDiaDianResumen.setFuenteLetra(lsFuenteLetra);
+              prcFinDiaDianResumen.setTamanioLetra(lsTamanioLetra);
+              prcFinDiaDianResumen.EscribirArchivoFormato();
+              prcFinDiaDianResumen.impresionFormatojob();
+              ProcesaFinDiaDianResumen.cortarFormato();
+            } else {
+              ProcesaFinDiaDianResumen.EscribirArchivo();
+            } 
+            prcFinDiaDianResumen.cerrarArchivo();
+            prcFinDiaDianResumen.imprimirArchivo();
+            prcFinDiaDianResumen.borrarArchivo();
+            if (prcFinDiaDianResumen.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_FindelDia_Dian_Ventas_Por_Departamento.php") > 0) {
+            prcFinDiaDianVentasPorDepartamento = new ProcesaFinDiaDianVentasPorDepartamento();
+            prcFinDiaDianVentasPorDepartamento
+              .setNombreArchivoLocal(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".txt");
+            ProcesaFinDiaDianVentasPorDepartamento.setRutaFinDiaDianVentasPorDepartamentoHtml(lsUrl);
+            prcFinDiaDianVentasPorDepartamento
+              .setNombreArchivoFinDia(String.valueOf(lsRuta) + "\\findedia_" + lsCadena + ".html");
+            prcFinDiaDianVentasPorDepartamento.setNombreImpresora(lsNombreImpresora);
+            prcFinDiaDianVentasPorDepartamento.iniciaArchivoLocal();
+            ProcesaFinDiaDianVentasPorDepartamento.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcFinDiaDianVentasPorDepartamento.setFuenteLetra(lsFuenteLetra);
+              prcFinDiaDianVentasPorDepartamento.setTamanioLetra(lsTamanioLetra);
+              prcFinDiaDianVentasPorDepartamento.EscribirArchivoFormato();
+              prcFinDiaDianVentasPorDepartamento.impresionFormatojob();
+              ProcesaFinDiaDianVentasPorDepartamento.cortarFormato();
+            } else {
+              ProcesaFinDiaDianVentasPorDepartamento.EscribirArchivo();
+            } 
+            prcFinDiaDianVentasPorDepartamento.cerrarArchivo();
+            prcFinDiaDianVentasPorDepartamento.imprimirArchivo();
+            prcFinDiaDianVentasPorDepartamento.borrarArchivo();
+            if (prcFinDiaDianVentasPorDepartamento.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_Corte_X.php") > 0) {
+            prcCorteX = new ProcesarCorteEnX();
+            prcCorteX.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\corteX_" + lsCadena + ".txt");
+            prcCorteX.setRutaCorteXHtml(lsUrl);
+            prcCorteX.setNombreArchivoCorteX(String.valueOf(lsRuta) + "\\corteX_" + lsCadena + ".html");
+            prcCorteX.setNombreImpresora(lsNombreImpresora);
+            prcCorteX.iniciaArchivoLocal();
+            ProcesarCorteEnX.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcCorteX.setFuenteLetra(lsFuenteLetra);
+              prcCorteX.setTamanioLetra(lsTamanioLetra);
+              prcCorteX.EscribirArchivoFormato();
+              prcCorteX.impresionFormatojob();
+              ProcesarCorteEnX.cortarFormato();
+            } else {
+              ProcesarCorteEnX.EscribirArchivo();
+            } 
+            prcCorteX.cerrarArchivo();
+            prcCorteX.imprimirArchivo();
+            prcCorteX.borrarArchivo();
+            if (prcCorteX.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("imprimir_detallecupon.php") > 0) {
+            prcDetalleCupon = new ProcesaDetalleCupon();
+            prcDetalleCupon.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\cupond_" + lsCadena + ".txt");
+            prcDetalleCupon.setRutaCuponHtml(lsUrl);
+            prcDetalleCupon.setNombreArchivoCupon(String.valueOf(lsRuta) + "\\cupond_" + lsCadena + ".html");
+            prcDetalleCupon.setNombreImpresora(lsNombreImpresora);
+            prcDetalleCupon.iniciaArchivoLocal();
+            ProcesaDetalleCupon.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcDetalleCupon.setFuenteLetra(lsFuenteLetra);
+              prcDetalleCupon.setTamanioLetra(lsTamanioLetra);
+              prcDetalleCupon.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+              prcDetalleCupon.EscribirArchivoFormato();
+              prcDetalleCupon.impresionFormato();
+              ProcesaDetalleCupon.cortarFormato();
+            } else {
+              ProcesaDetalleCupon.EscribirArchivo();
+            } 
+            prcDetalleCupon.cerrarArchivo();
+            prcDetalleCupon.imprimirArchivo();
+            prcDetalleCupon.borrarArchivo();
+            if (prcDetalleCupon.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_credito_sin_cupon.php") > 0 && 
+            lsUrl.indexOf("opcionFp=EMPRESA") > 0) {
+            prcCupon = new ProcesaCupones();
+            prcCupon.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\cupon_" + lsCadena + ".txt");
+            prcCupon.setRutaCuponHtml(lsUrl);
+            prcCupon.setNombreArchivoCupon(String.valueOf(lsRuta) + "\\cupon_" + lsCadena + ".html");
+            prcCupon.setNombreImpresora(lsNombreImpresora);
+            prcCupon.iniciaArchivoLocal();
+            ProcesaCupones.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcCupon.setFuenteLetra(lsFuenteLetra);
+              prcCupon.setTamanioLetra(lsTamanioLetra);
+              prcCupon.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+              prcCupon.EscribirArchivoFormato();
+              prcCupon.impresionFormatojob();
+              ProcesaCupones.cortarFormato();
+            } else {
+              ProcesaCupones.EscribirArchivo();
+            } 
+            prcCupon.cerrarArchivo();
+            prcCupon.imprimirArchivo();
+            prcCupon.borrarArchivo();
+            if (prcCupon.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresionCorteCajaDinamico.php") > 0) {
+            prcCajero = new ProcesaDesasignarCajero();
+            prcCajero.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\caja_" + lsCadena + ".txt");
+            prcCajero.setRutaCajeroHtml(lsUrl);
+            prcCajero.setNombreArchivoCajero(String.valueOf(lsRuta) + "\\caja_" + lsCadena + ".html");
+            prcCajero.setNombreImpresora(lsNombreImpresora);
+            prcCajero.iniciaArchivoLocal();
+            ProcesaDesasignarCajero.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcCajero.setFuenteLetra(lsFuenteLetra);
+              prcCajero.setTamanioLetra(lsTamanioLetra);
+              prcCajero.EscribirArchivoFormato();
+              prcCajero.impresionFormatojob();
+              ProcesaDesasignarCajero.cortarFormato();
+            } else {
+              ProcesaDesasignarCajero.EscribirArchivo();
+            } 
+            prcCajero.cerrarArchivo();
+            prcCajero.imprimirArchivo();
+            prcCajero.borrarArchivo();
+            if (prcCajero.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_Promocion.php") > 0 && lsBanderaImagen.equals("0")) {
+            lsArchivo = String.valueOf(lsRuta) + "\\Promocion_" + lsCadena + ".txt";
+            prcPromoCupones = new ProcesaPromocionCupones();
+            prcPromoCupones.setNombreArchivoLocal(lsArchivo);
+            ProcesaPromocionCupones.setRutaPromoionCupoHtml(lsUrl);
+            prcPromoCupones.setNombreArchivoPromoionCupoHtml(String.valueOf(lsRuta) + "\\Promocion_" + lsCadena + ".html");
+            prcPromoCupones.setNombreImpresora(lsNombreImpresora);
+            prcPromoCupones.iniciaArchivoLocal();
+            try {
+              ProcesaPromocionCupones.leerUrl();
+              if (lsBanderaImpresion.equals("1")) {
+                prcPromoCupones.setFuenteLetra(lsFuenteLetra);
+                prcPromoCupones.setTamanioLetra(lsTamanioLetra);
+                prcPromoCupones.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+                prcPromoCupones.EscribirArchivoFormato();
+                prcPromoCupones.impresionFormatojob();
+                ProcesaPromocionCupones.cortarFormato();
+              } else {
+                ProcesaPromocionCupones.EscribirArchivo();
+              } 
+              prcPromoCupones.cerrarArchivo();
+              prcPromoCupones.imprimirArchivo();
+              prcPromoCupones.borrarArchivo();
+            } catch (Exception ex) {
+              prcPromoCupones.cerrarArchivo();
+              prcPromoCupones.borrarArchivo();
+            } 
+            if (prcPromoCupones.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_Promocion.php") > 0 && lsBanderaImagen.equals("1")) {
+            prcImagen = new ProcesaImagen();
+            prcImagen.setConexion(con);
+            prcImagen.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ImagenImp" + lsCadena + ".txt");
+            prcImagen.iniciaArchivoLocal();
+            prcImagen.setLsArchivoImagen(String.valueOf(lsRuta) + "\\ImagenPromocion" + lsCadena + ".jpg");
+            arImagen = prcImagen.obtenerImagenEnBD();
+            prcImagen.guardaImagenEnDisco(arImagen);
+            prcImagen.setNombreImpresora(lsNombreImpresora);
+            prcImagen.impresionFormato();
+            ProcesaImagen.cortar();
+            prcImagen.cerrarArchivo();
+            prcImagen.imprimirArchivo();
+            prcImagen.borrarArchivo();
+            if (prcImagen.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("impresion_ingreso_egreso.php") > 0) {
+            lsArchivo = String.valueOf(lsRuta) + "\\EgresoTrans_" + lsCadena + ".txt";
+            prcEgreso = new ProcesaEgresoTransferencia();
+            prcEgreso.setNombreArchivoLocal(lsArchivo);
+            prcEgreso.setRutaEgresoHtml(lsUrl);
+            prcEgreso.setNombreArchivoEgreso(String.valueOf(lsRuta) + "\\EgresoTrans" + lsCadena + ".html");
+            prcEgreso.setNombreImpresora(lsNombreImpresora);
+            prcEgreso.iniciaArchivoLocal();
+            try {
+              ProcesaEgresoTransferencia.leerUrl();
+              if (lsBanderaImpresion.equals("1")) {
+                prcEgreso.setFuenteLetra(lsFuenteLetra);
+                prcEgreso.setTamanioLetra(lsTamanioLetra);
+                prcEgreso.EscribirArchivoFormato();
+                prcEgreso.impresionFormatojob();
+                ProcesaEgresoTransferencia.cortarFormato();
+              } else {
+                ProcesaEgresoTransferencia.EscribirArchivo();
+              } 
+              prcEgreso.cerrarArchivo();
+              prcEgreso.imprimirArchivo();
+              prcEgreso.borrarArchivo();
+            } catch (Exception ex) {
+              ex.printStackTrace();
+              prcEgreso.cerrarArchivo();
+              prcEgreso.borrarArchivo();
+            } 
+            if (prcEgreso.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("imprimir_precuenta.php") > 0) {
+            prcPrecuenta = new ProcesaPreCuenta();
+            prcPrecuenta.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\precuenta_" + lsCadena + ".txt");
+            prcPrecuenta.setRutaPreCuentaHtml(lsUrl);
+            prcPrecuenta.setNombreArchivoPreCuenta(String.valueOf(lsRuta) + "\\precuenta_" + lsCadena + ".html");
+            prcPrecuenta.setNombreImpresora(lsNombreImpresora);
+            prcPrecuenta.iniciaArchivoLocal();
+            ProcesaPreCuenta.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              prcPrecuenta.setFuenteLetra(lsFuenteLetra);
+              prcPrecuenta.setTamanioLetra(lsTamanioLetra);
+              prcPrecuenta.setCantidadCaracteresDescripcion(lsCantidadCaracteresDes);
+              prcPrecuenta.EscribirArchivoFormato();
+              prcPrecuenta.impresionFormatojob();
+              ProcesaPreCuenta.cortarFormato();
+            } else {
+              ProcesaPreCuenta.EscribirArchivo();
+            } 
+            prcPrecuenta.cerrarArchivo();
+            prcPrecuenta.imprimirArchivo();
+            prcPrecuenta.borrarArchivo();
+            if (prcPrecuenta.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } else if (lsUrl.indexOf("horneadokfc/printComprobante.php") > 0) {
+            prcOrdenHorneado = new ProcesaOrdenHorneado();
+            prcOrdenHorneado.setNombreArchivoLocal(String.valueOf(lsRuta) + "\\ordenpedidoHorneado_" + lsCadena + ".txt");
+            prcOrdenHorneado.setRutaVoucherHtml(lsUrl);
+            prcOrdenHorneado
+              .setNombreArchivoVoucher(String.valueOf(lsRuta) + "\\ordenpedidoHorneado_" + lsCadena + ".html");
+            prcOrdenHorneado.setNombreImpresora(lsNombreImpresora);
+            prcOrdenHorneado.iniciaArchivoLocal();
+            ProcesaOrdenHorneado.leerUrl();
+            if (lsBanderaImpresion.equals("1")) {
+              String tamanioFuente = lconfiguraciones.getProperty("valor.tamanio_orden");
+              String cantidadCaracteres = lconfiguraciones.getProperty("valor.longitud_linea");
+              prcOrdenHorneado.setFuenteLetra(lsFuenteLetra);
+              prcOrdenHorneado.setTamanioLetra(tamanioFuente);
+              prcOrdenHorneado.setCantidadCaracteresDescripcion(cantidadCaracteres);
+              prcOrdenHorneado.EscribirArchivoFormato();
+              prcOrdenHorneado.impresionFormatojob();
+              ProcesaOrdenHorneado.cortarFormato();
+            } else {
+              ProcesaOrdenHorneado.EscribirArchivo();
+            } 
+            prcOrdenHorneado.cerrarArchivo();
+            prcOrdenHorneado.imprimirArchivo();
+            prcOrdenHorneado.borrarArchivo();
+            if (prcOrdenHorneado.getImprimio() == 1) {
+              accion = 1;
+            } else {
+              accion = 0;
+            } 
+          } 
+          try {
+            if (accion == 1) {
+              l_ps = null;
+              l_ps = con.prepareStatement(lsUpdate);
+              l_ps.setString(1, lsIdCanal);
+              l_ps.executeUpdate();
+            } else {
+              l_ps = null;
+              l_ps = con.prepareStatement(lsUpdateError);
+              l_ps.setString(1, lsIdCanal);
+              l_ps.executeUpdate();
+              System.out.println("Update Error " + lsIdCanal);
+            } 
+          } catch (Exception ex) {
+            l_ps.close();
+            ex.printStackTrace();
+            continue;
+          } finally {
+            if (l_ps != null)
+              l_ps.close(); 
+          } 
+        } 
+      } catch (Exception ex) {
+        System.out.println("\nCerro conexion por Error");
+        l_ps = null;
+        l_ps = con.prepareStatement(lsUpdateError);
+        l_ps.setString(1, lsIdCanal);
+        l_ps.executeUpdate();
+        l_ps.close();
+        lps_pstmt.close();
+        lrs.close();
+        ex.printStackTrace();
+      } finally {
+        if (lps_pstmt != null) {
+          System.out.println("Cerro Sentencias");
+          lps_pstmt.close();
+          lrs.close();
+        } 
+      } 
+      System.out.println("Inicio Procesa Cola");
+      String sqlLsComandoCajon = lconfiguraciones.getProperty("query.cmdAbrirCajon");
+      String lsComandos = "";
+      try {
+        lps_pstmt = con.prepareStatement(sqlLsComandoCajon);
+        lrs = lps_pstmt.executeQuery();
+        while (lrs.next())
+          lsComandos = lrs.getString("cco_valor"); 
+      } catch (Exception ex) {
+        lps_pstmt.close();
+        lrs.close();
+        ex.printStackTrace();
+      } finally {
+        if (lps_pstmt != null) {
+          lps_pstmt.close();
+          lrs.close();
+        } 
+      } 
+      String sqlProcesaCola = lconfiguraciones.getProperty("query.infoCanalMovimiento");
+      String lsidCanalMOvimiento = "";
+      try {
+        lps_pstmt = con.prepareStatement(sqlProcesaCola);
+        lps_pstmt.setString(1, lsIpPOS);
+        lps_pstmt.setString(2, "41");
+        lps_pstmt.setString(3, "100");
+        lrs = lps_pstmt.executeQuery();
+        while (lrs.next()) {
+          lsidCanalMOvimiento = lrs.getString("imp_id");
+          lsNombreImpresora = lrs.getString("imp_impresora");
+          lsNombreImpresora = lsNombreImpresora.replace("\"", "");
+          accion = printAperturaCajon(lsComandos, lsNombreImpresora);
+          try {
+            if (accion == 1) {
+              l_ps = null;
+              l_ps = con.prepareStatement(lsUpdate);
+              l_ps.setString(1, lsidCanalMOvimiento);
+              l_ps.executeUpdate();
+            } else {
+              l_ps = null;
+              l_ps = con.prepareStatement(lsUpdateError);
+              l_ps.setString(1, lsidCanalMOvimiento);
+              l_ps.executeUpdate();
+            } 
+          } catch (Exception ex) {
+            l_ps = null;
+            l_ps = con.prepareStatement(lsUpdateError);
+            l_ps.setString(1, lsidCanalMOvimiento);
+            l_ps.executeUpdate();
+            l_ps.close();
+            ex.printStackTrace();
+            continue;
+          } finally {
+            if (l_ps != null)
+              l_ps.close(); 
+          } 
+        } 
+      } catch (Exception ex) {
+        l_ps = null;
+        l_ps = con.prepareStatement(lsUpdateError);
+        l_ps.setString(1, lsidCanalMOvimiento);
+        l_ps.executeUpdate();
+        l_ps.close();
+        lps_pstmt.close();
+        lrs.close();
+        ex.printStackTrace();
+      } finally {
+        if (lps_pstmt != null) {
+          lps_pstmt.close();
+          lrs.close();
+        } 
+      } 
+      try {
+        lps_pstmt = con.prepareStatement(sqlProcesaCola);
+        lps_pstmt.setString(1, lsIpPOS);
+        lps_pstmt.setString(2, "41");
+        lps_pstmt.setString(3, "900");
+        lrs = lps_pstmt.executeQuery();
+        while (lrs.next()) {
+          try {
+            lsidCanalMOvimiento = lrs.getString("imp_id");
+            l_ps = null;
+            l_ps = con.prepareStatement(lsUpdate);
+            l_ps.setString(1, lsidCanalMOvimiento);
+            l_ps.executeUpdate();
+            ApagarPC();
+          } catch (Exception ex) {
+            l_ps = null;
+            l_ps = con.prepareStatement(lsUpdateError);
+            l_ps.setString(1, lsidCanalMOvimiento);
+            l_ps.executeUpdate();
+            l_ps.close();
+            throw ex;
+          } finally {
+            if (l_ps != null)
+              l_ps.close(); 
+          } 
+        } 
+      } catch (Exception ex) {
+        l_ps = null;
+        l_ps = con.prepareStatement(lsUpdateError);
+        l_ps.setString(1, lsidCanalMOvimiento);
+        l_ps.executeUpdate();
+        l_ps.close();
+        lps_pstmt.close();
+        lrs.close();
+        ex.printStackTrace();
+      } finally {
+        if (lps_pstmt != null) {
+          lps_pstmt.close();
+          lrs.close();
+        } 
+      } 
+      System.out.println("Fin Procesa Cola");
+      lServicioConexion.cerrarConexion();
+      lServicioConexion = null;
+      System.out.println("\nCerro Conexion Nativa");
+    } catch (Throwable e) {
+      e.printStackTrace();
+    } 
+  }
+  
+  public static int printAperturaCajon(String psComandos, String psNombreImpresora) throws IOException {
+    String contentTicket = "";
+    String[] arreglo = psComandos.split(",");
+    int idImpresora = -1;
+    HashAttributeSet aset = new HashAttributeSet();
+    aset.add(new PrinterName(psNombreImpresora, null));
+    aset = new HashAttributeSet();
+    aset.add(ColorSupported.NOT_SUPPORTED);
+    PrintService[] services = PrintServiceLookup.lookupPrintServices(DocFlavor.INPUT_STREAM.AUTOSENSE, aset);
+    for (int i = 0; i < arreglo.length; i++)
+      contentTicket = String.valueOf(contentTicket) + (char)Integer.parseInt(arreglo[i]); 
+    byte[] bytes = contentTicket.getBytes();
+    DocFlavor flavor = DocFlavor.BYTE_ARRAY.AUTOSENSE;
+    Doc doc = new SimpleDoc(bytes, flavor, null);
+    DocPrintJob job = null;
+    int imprimio = 0;
+    for (int x = 0; x < services.length; x++) {
+      if (services[x].getName().compareToIgnoreCase(psNombreImpresora) == 0)
+        idImpresora = x; 
+    } 
+    if (services != null && 
+      idImpresora >= 0)
+      try {
+        job = services[idImpresora].createPrintJob();
+        job.print(doc, new HashPrintRequestAttributeSet());
+        imprimio = 1;
+      } catch (PrintException ex) {
+        ex.printStackTrace();
+      }  
+    return imprimio;
+  }
+  
+  public static void ApagarPC() {
+    String cmd = "shutdown -s -f -t 1";
+    try {
+      Runtime.getRuntime().exec(cmd);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } 
+  }
+  
+  public static void PruebaDespacho() throws InterruptedException {
+    boolean valor = true;
+    for (int i = 0; i < 10000000; i++);
+    while (valor) {
+      Properties lconfiguraciones = (new Configuraciones()).getPropiedades();
+      if (lconfiguraciones.getProperty("bandera.impresion").equals("1"))
+        valor = false; 
+    } 
+  }
+}

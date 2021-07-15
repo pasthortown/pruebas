@@ -1,0 +1,305 @@
+package com.corlasosa.kfc.despachador.formateado;
+
+import com.corlasosa.kfc.despachador.ProcesaOrdenPedido;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.font.TextAttribute;
+import java.awt.image.BufferedImage;
+import java.awt.image.ImageObserver;
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class IntroPageOrden implements Printable {
+  private String tabla = null;
+  
+  private String formato = "";
+  
+  private int tamanio;
+  
+  private int aumentoTamanioLetraOrden;
+  
+  private String nombreImpresora = "";
+  
+  private List<String> impresorasExcluidasQR = new ArrayList<>();
+  
+  public IntroPageOrden() {}
+  
+  public IntroPageOrden(String nombreImpresora, List<String> impresorasExcluidasQR) {
+    this.nombreImpresora = nombreImpresora;
+    this.impresorasExcluidasQR = impresorasExcluidasQR;
+  }
+  
+  public int getTamanio() {
+    return this.tamanio;
+  }
+  
+  public void setTamanio(int tamanio) {
+    this.tamanio = tamanio;
+  }
+  
+  public String getFuente() {
+    return this.formato;
+  }
+  
+  public void setFuente(String formato) {
+    this.formato = formato;
+  }
+  
+  public int getAumentoTamanioLetraOrden() {
+    return this.aumentoTamanioLetraOrden;
+  }
+  
+  public void setAumentoTamanioLetraOrden(int aumentoTamanioLetraOrden) {
+    this.aumentoTamanioLetraOrden = aumentoTamanioLetraOrden;
+  }
+  
+  public String getTabla() {
+    return this.tabla;
+  }
+  
+  public void setTabla(String tabla) {
+    this.tabla = tabla;
+  }
+  
+  public String getNombreImpresora() {
+    return this.nombreImpresora;
+  }
+  
+  public void setNombreImpresora(String nombreImpresora) {
+    this.nombreImpresora = nombreImpresora;
+  }
+  
+  public List<String> getImpresorasExcluidasQR() {
+    return this.impresorasExcluidasQR;
+  }
+  
+  public void setImpresorasExcluidasQR(List<String> impresorasExcluidasQR) {
+    this.impresorasExcluidasQR = impresorasExcluidasQR;
+  }
+  
+  public int ValidaTitulos(String psCadena) {
+    int valor = 0;
+    String lsCadena = "CANT,DESCRIPCION,ORDEN";
+    String[] arreglo = lsCadena.split(",");
+    for (int i = 0; i < arreglo.length; i++) {
+      if (psCadena.indexOf(arreglo[i]) >= 0)
+        valor = 1; 
+    } 
+    return valor;
+  }
+  
+  public void drawCenteredString(String s, int w, int h, Graphics g, int py) {
+    FontMetrics fm = g.getFontMetrics();
+    int x = (w - fm.stringWidth(s)) / 2;
+    int y = fm.getAscent() + (h - fm.getAscent() + fm.getDescent()) / 2;
+    g.drawString(s, x, py);
+  }
+  
+  public void drawStringDerA(Graphics g, String line, int wc, int lineW, int y, int valor) {
+    g.drawString(line, valor - lineW, y);
+  }
+  
+  public int print(Graphics g, PageFormat pageFormat, int page) {
+    try {
+      Graphics2D g2d = (Graphics2D)g;
+      g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+      int lInicio = 0;
+      int lFin = 0;
+      String lLinea = null;
+      String lLineaAux = null;
+      int x = 0;
+      int y = 0;
+      String ptabla = this.tabla;
+      x = 10;
+      y = 10;
+      int i = 0;
+      do {
+        if (i < 1) {
+          lInicio = ptabla.indexOf("<");
+          lFin = ptabla.indexOf(">");
+          lLinea = ptabla.substring(lInicio + 1, lFin);
+          String cadenaImp = ptabla.substring(lInicio + 1, lFin);
+          String linea1 = cadenaImp;
+          FontMetrics metric = g2d.getFontMetrics();
+          Font linea1Font = new Font(this.formato, 1 + metric.getLeading(), this.tamanio);
+          lLineaAux = ptabla.substring(ptabla.indexOf(">") + 1, ptabla.length());
+          g2d.setFont(linea1Font);
+          g2d.drawString(linea1, x, y);
+        } else {
+          lInicio = lLineaAux.indexOf("<");
+          lFin = lLineaAux.indexOf(">");
+          lLinea = String.valueOf(lLinea) + lLineaAux.substring(lInicio + 1, lFin);
+          String cadenaImp = lLineaAux.substring(lInicio + 1, lFin);
+          String linea2 = cadenaImp;
+          Font linea2Font = new Font(this.formato, 2, this.tamanio);
+          lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
+          g2d.setFont(linea2Font);
+          if (linea2.indexOf("Transaccion") >= 0) {
+            FontMetrics metric = g2d.getFontMetrics();
+            impresionSeccionOrden(g2d, x, y, linea2);
+          } else if (linea2.indexOf("SgmenA") >= 0) {
+            String[] arreglo = linea2.split("SgmenA");
+            if (ValidaTitulos(arreglo[0]) == 1) {
+              FontMetrics metric = g2d.getFontMetrics();
+              Font fuenteTitulo = new Font(this.formato, 1 + metric.getLeading(), this.tamanio);
+              g2d.setFont(fuenteTitulo);
+              g2d.drawString(arreglo[0], 10, y);
+              g2d.drawString(arreglo[1], 30, y);
+              g2d.drawString(arreglo[2], 140, y);
+              g2d.drawString(arreglo[3], 165, y);
+            } else {
+              g2d.drawString(arreglo[0], 11, y);
+              g2d.drawString(arreglo[1].trim(), 30, y);
+              g2d.drawString(arreglo[2], 141, y);
+              g2d.drawString("   " + arreglo[3], 166, y);
+            } 
+          } else if (linea2.indexOf("SgmenB") >= 0) {
+            String[] arreglo = linea2.split("SgmenB");
+            if (ValidaTitulos(arreglo[0]) == 1) {
+              FontMetrics metric = g2d.getFontMetrics();
+              Font fuenteTitulo = new Font(this.formato, 1 + metric.getLeading(), this.tamanio);
+              g2d.setFont(fuenteTitulo);
+              g2d.drawString(arreglo[0], 10 + metric.getLeading(), y);
+              g2d.drawString(arreglo[1], 65 + metric.getLeading(), y);
+            } else if (arreglo[0].toUpperCase().indexOf("USUARIO") >= 0) {
+              g2d.drawString(String.valueOf(arreglo[0]) + " " + arreglo[1], 10, y);
+            } else if (arreglo[0].toUpperCase().indexOf("#") >= 0) {
+              FontMetrics metric = g2d.getFontMetrics();
+              g2d.drawString(arreglo[0], 20 + metric.getLeading(), y);
+              g2d.drawString(arreglo[1], 110 + metric.getLeading(), y);
+            } else if (arreglo[1].indexOf("pp001") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 0, this.tamanio);
+              g2d.setFont(fuenteTipo1);
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp002") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTipo1);
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp003") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 2, this.tamanio);
+              g2d.setFont(fuenteTipo1);
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp004") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 0, this.tamanio);
+              Map<TextAttribute, ?> atri = fuenteTipo1.getAttributes();
+              atri.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+              g2d.setFont(fuenteTipo1.deriveFont((Map)atri));
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp005") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 3, this.tamanio);
+              g2d.setFont(fuenteTipo1);
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp006") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 1, this.tamanio);
+              Map<TextAttribute, ?> atri = fuenteTipo1.getAttributes();
+              atri.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+              g2d.setFont(fuenteTipo1.deriveFont((Map)atri));
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp007") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 2, this.tamanio);
+              Map<TextAttribute, ?> atri = fuenteTipo1.getAttributes();
+              atri.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+              g2d.setFont(fuenteTipo1.deriveFont((Map)atri));
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else if (arreglo[1].indexOf("pp008") >= 0) {
+              Font fuenteTipo1 = new Font(this.formato, 3, this.tamanio);
+              Map<TextAttribute, ?> atri = fuenteTipo1.getAttributes();
+              atri.put(TextAttribute.UNDERLINE, TextAttribute.UNDERLINE_ON);
+              g2d.setFont(fuenteTipo1.deriveFont((Map)atri));
+              arreglo[1] = arreglo[1].substring(5, arreglo[1].length());
+              g2d.drawString(arreglo[0], 20, y);
+              g2d.drawString(arreglo[1], 45, y);
+            } else {
+              FontMetrics metric = g2d.getFontMetrics();
+              g2d.drawString(arreglo[0], 20 + metric.getLeading(), y);
+              g2d.drawString(arreglo[1], 45 + metric.getLeading(), y);
+            } 
+          } else if (linea2.indexOf("pp00m") >= 0) {
+            linea2 = linea2.substring(6, linea2.length());
+            g2d.drawString(linea2, x + 35, y);
+          } else if (linea2.indexOf("QRTITLE") >= 0) {
+            linea2 = linea2.substring(7, linea2.length());
+            g2d.drawString(linea2, x + 25, y);
+          } else if (linea2.indexOf("QR") >= 0) {
+            if (this.impresorasExcluidasQR == null || this.impresorasExcluidasQR.isEmpty() || 
+              !this.impresorasExcluidasQR.contains(this.nombreImpresora)) {
+              String codigoqr = linea2.substring(3, linea2.length());
+              QRCodeWriter writer = new QRCodeWriter();
+              int width = 100, height = 100;
+              BigDecimal widthCenter = new BigDecimal(width / 2);
+              int imageCenter = widthCenter.intValue();
+              BigDecimal asd = new BigDecimal(width * 0.6D);
+              int dfg = asd.intValue();
+              BufferedImage image = new BufferedImage(width, height, 1);
+              int white = 16777215;
+              int black = 0;
+              try {
+                BitMatrix bitMatrix = writer.encode(codigoqr, BarcodeFormat.QR_CODE, width, height);
+                for (int ii = 0; ii < width; ii++) {
+                  for (int j = 0; j < height; j++)
+                    image.setRGB(ii, j, bitMatrix.get(ii, j) ? black : white); 
+                } 
+                g2d.drawImage(image, imageCenter - imageCenter / 2 + 12, y - 6, (ImageObserver)null);
+                y += 80;
+              } catch (WriterException e) {
+                e.printStackTrace();
+              } catch (Exception e) {
+                e.printStackTrace();
+              } 
+            } 
+          } else {
+            g2d.drawString(linea2, x, y);
+          } 
+        } 
+        y += 9;
+        i++;
+      } while (lLineaAux.indexOf(">") > 0);
+    } catch (Exception ex) {
+      Logger.getLogger(ProcesaOrdenPedido.class.getName()).log(Level.SEVERE, (String)null, ex);
+    } 
+    return 0;
+  }
+  
+  public void impresionSeccionOrden(Graphics2D g2d, int x, int y, String lineaOrden) {
+    Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+    Font fuenteNumeroOrden = new Font(this.formato, 1, this.tamanio + getAumentoTamanioLetraOrden());
+    String[] ordenSegmentada = lineaOrden.split(" ");
+    if (ordenSegmentada.length == 3) {
+      g2d.setFont(fuenteTitulo);
+      g2d.drawString(String.valueOf(ordenSegmentada[0]) + ordenSegmentada[1], x, y);
+      g2d.setFont(fuenteNumeroOrden);
+      g2d.drawString(ordenSegmentada[2], x + 70, y);
+    } else if (ordenSegmentada.length == 2) {
+      g2d.setFont(fuenteTitulo);
+      g2d.drawString(ordenSegmentada[0], x, y);
+      g2d.setFont(fuenteNumeroOrden);
+      g2d.drawString(ordenSegmentada[1], x + 70, y);
+    } 
+  }
+}

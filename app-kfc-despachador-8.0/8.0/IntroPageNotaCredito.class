@@ -1,0 +1,164 @@
+package com.corlasosa.kfc.despachador.formateado;
+
+import com.corlasosa.kfc.despachador.ProcesaNotaCredito;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.print.PageFormat;
+import java.awt.print.Printable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class IntroPageNotaCredito implements Printable {
+  private String tabla = null;
+  
+  private String formato = "";
+  
+  private int tamanio;
+  
+  public int getTamanio() {
+    return this.tamanio;
+  }
+  
+  public void setTamanio(int tamanio) {
+    this.tamanio = tamanio;
+  }
+  
+  public String getFuente() {
+    return this.formato;
+  }
+  
+  public void setFuente(String formato) {
+    this.formato = formato;
+  }
+  
+  public String getTabla() {
+    return this.tabla;
+  }
+  
+  public void setTabla(String tabla) {
+    this.tabla = tabla;
+  }
+  
+  public int ValidaTitulos(String psCadena) {
+    int valor = 0;
+    String lsCadena = "CNT,VALOR TOTAL,ORDEN,DETALLE DE NOTA DE CREDITO,DESCRIPCI;
+    String[] arreglo = lsCadena.split(",");
+    for (int i = 0; i < arreglo.length; i++) {
+      if (psCadena.indexOf(arreglo[i]) >= 0)
+        valor = 1; 
+    } 
+    return valor;
+  }
+  
+  public void drawCenteredString(String s, int w, int h, Graphics g, int py) {
+    FontMetrics fm = g.getFontMetrics();
+    int x = (w - fm.stringWidth(s)) / 2;
+    g.drawString(s, x, py);
+  }
+  
+  public void drawStringDerA(Graphics g, String line, int wc, int lineW, int y, int valor) {
+    g.drawString(line, valor - lineW, y);
+  }
+  
+  public int print(Graphics g, PageFormat pageFormat, int page) {
+    try {
+      Graphics2D g2d = (Graphics2D)g;
+      g2d.translate(pageFormat.getImageableX(), pageFormat.getImageableY());
+      int lInicio = 0;
+      int lFin = 0;
+      String lLinea = null;
+      String lLineaAux = null;
+      int x = 0;
+      int y = 0;
+      String ptabla = this.tabla;
+      boolean lbBandera = false;
+      x = 10;
+      y = 10;
+      int i = 0;
+      do {
+        if (i < 1) {
+          lInicio = ptabla.indexOf("<");
+          lFin = ptabla.indexOf(">");
+          lLinea = ptabla.substring(lInicio + 1, lFin);
+          String cadenaImp = ptabla.substring(lInicio + 1, lFin);
+          String linea1 = cadenaImp;
+          Font linea1Font = new Font(this.formato, 1, this.tamanio);
+          lLineaAux = ptabla.substring(ptabla.indexOf(">") + 1, ptabla.length());
+          g2d.setFont(linea1Font);
+          g2d.getFontMetrics(linea1Font);
+          if (i <= 3) {
+            Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+            g2d.setFont(fuenteTitulo);
+          } 
+          drawCenteredString(linea1, Integer.parseInt("200"), Integer.parseInt("100"), g2d, y);
+        } else {
+          lInicio = lLineaAux.indexOf("<");
+          lFin = lLineaAux.indexOf(">");
+          lLinea = String.valueOf(lLinea) + lLineaAux.substring(lInicio + 1, lFin);
+          String cadenaImp = lLineaAux.substring(lInicio + 1, lFin);
+          String linea2 = cadenaImp;
+          Font linea2Font = new Font(this.formato, 2, this.tamanio);
+          lLineaAux = lLineaAux.substring(lLineaAux.indexOf(">") + 1, lLineaAux.length());
+          g2d.setFont(linea2Font);
+          FontMetrics linea2FontMetrics = g2d.getFontMetrics(linea2Font);
+          if (linea2.indexOf("SgmenA") >= 0) {
+            String[] arreglo = linea2.split("SgmenA");
+            if (ValidaTitulos(arreglo[0]) == 1) {
+              Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTitulo);
+              g2d.drawString(arreglo[0], 10, y);
+              g2d.drawString(arreglo[1], 30, y);
+              g2d.drawString(arreglo[2], 140, y);
+              if (arreglo.length == 4)
+                g2d.drawString(arreglo[3], 165, y); 
+            } else {
+              g2d.drawString(arreglo[0], 11, y);
+              g2d.drawString(arreglo[1].trim(), 30, y);
+              g2d.drawString(arreglo[2], 141, y);
+              if (arreglo.length == 4)
+                g2d.drawString("   " + arreglo[3], 166, y); 
+            } 
+          } else if (linea2.indexOf("SgmenC") >= 0) {
+            String[] arreglo = linea2.split("SgmenC");
+            g2d.drawString(arreglo[0], 30, y);
+          } else if (linea2.indexOf("SgmenB") >= 0) {
+            String[] arreglo = linea2.split("SgmenB");
+            if (ValidaTitulos(arreglo[0]) == 1) {
+              Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTitulo);
+            } 
+            drawStringDerA(g2d, arreglo[0], arreglo[0].length(), linea2FontMetrics.stringWidth(arreglo[0]), y, 150);
+            drawStringDerA(g2d, arreglo[1], arreglo[1].length(), linea2FontMetrics.stringWidth(arreglo[1]), y, 180);
+          } else {
+            if (linea2.indexOf("RUC:") >= 0)
+              if (linea2.substring(0, 4).equals("RUC:")) {
+                lbBandera = true;
+                Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+                g2d.setFont(fuenteTitulo);
+              }  
+            if (!lbBandera && i <= 3) {
+              Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTitulo);
+            } 
+            if (linea2.indexOf("DETALLE DE NOTA DE CREDITO") >= 0 || linea2.indexOf("DETALLE DE NOTA DE CR) >= 0) {
+              Font fuenteTitulo = new Font(this.formato, 1, this.tamanio);
+              g2d.setFont(fuenteTitulo);
+            } 
+            if (i <= 10) {
+              drawCenteredString(linea2.trim(), Integer.parseInt("200"), Integer.parseInt("100"), g2d, y);
+            } else {
+              g2d.drawString(linea2, x, y);
+            } 
+          } 
+        } 
+        y += 9;
+        i++;
+      } while (lLineaAux.indexOf(">") > 0);
+    } catch (Exception ex) {
+      Logger.getLogger(ProcesaNotaCredito.class.getName()).log(Level.SEVERE, (String)null, ex);
+    } 
+    return 0;
+  }
+}
